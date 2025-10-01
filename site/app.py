@@ -1,24 +1,49 @@
 import pandas as pd
 import streamlit as st
 from pathlib import Path
+from datetime import date, timedelta
 
 st.set_page_config(page_title="ACAC Net-pts WAR", layout="wide")
-st.title("ACAC Net-pts WAR (oWAR / dWAR / tWAR) — Season Leaderboard")
 
+# --- Gender Toggle ---
+gender = st.radio("Select League", ["Men", "Women"], horizontal=True)
+
+# --- Season Settings ---
 SEASON = 2025
-data_path = Path(__file__).parent / f"leaderboard_{SEASON}.csv"
+data_file = f"leaderboard_{gender.lower()}_{SEASON}.csv"
+data_path = Path(__file__).parent / "data" / data_file
 
 @st.cache_data
-def load():
-    if data_path.exists():
-        return pd.read_csv(data_path)
+def load(file):
+    if file.exists():
+        return pd.read_csv(file)
     else:
-        st.warning("No leaderboard found yet. Run `python compute/compute_war.py` to generate it.")
+        st.warning(f"No leaderboard found yet for {gender}. Run compute script to generate it.")
         return pd.DataFrame()
 
-df = load()
+df = load(data_path)
 if df.empty:
     st.stop()
+
+# --- Header Section (ESPN style) ---
+today = date.today()
+last_monday = today - timedelta(days=today.weekday())
+updated_str = last_monday.strftime("%a %b %d %Y")
+
+st.markdown(
+    f"""
+    <h1 style="text-align:center;">The Best ACAC {gender} Players in Wins Above Replacement (WAR)</h1>
+    <p style="text-align:center; color:grey; font-size:16px;">
+        Updated through {updated_str}
+    </p>
+    <p style="text-align:center; font-size:16px;">
+        These are updated weekly and based on the Net Points metric, which says how much better or worse than average a player is, then converted to Wins.
+    </p>
+    <h3 style="text-align:center;">Where Every ACAC {gender} Player Stands</h3>
+    <p style="text-align:center;">WAR from offense, defense and overall</p>
+    """,
+    unsafe_allow_html=True
+)
 
 # --- Filters ---
 c1, c2, c3, c4 = st.columns(4)
@@ -63,10 +88,15 @@ show_cols = ["player_name","team_name","pos","class","G", o_col, d_col, t_col]
 ren = {"player_name":"PLAYER","team_name":"TEAM","pos":"POS","class":"CLASS","G":"GAMES",
        o_col:labels[0], d_col:labels[1], t_col:labels[2]}
 
-styled = dfv[show_cols].rename(columns=ren).style \
-    .background_gradient(subset=[labels[0]], cmap="Reds") \
-    .background_gradient(subset=[labels[1]], cmap="Greens") \
-    .background_gradient(subset=[labels[2]], cmap="Greys")
+# lock color scale across dataset (like ESPN)
+max_owar = df[o_col].max() if o_col in df else None
+max_dwar = df[d_col].max() if d_col in df else None
+max_twar = df[t_col].max() if t_col in df else None
+
+styled = dfv[show_cols].rename(columns=ren).style
+if max_owar: styled = styled.background_gradient(subset=[labels[0]], cmap="Reds", vmin=0, vmax=max_owar)
+if max_dwar: styled = styled.background_gradient(subset=[labels[1]], cmap="Greens", vmin=0, vmax=max_dwar)
+if max_twar: styled = styled.background_gradient(subset=[labels[2]], cmap="Greys", vmin=0, vmax=max_twar)
 
 st.dataframe(styled, use_container_width=True, hide_index=True)
 st.caption("oNet/dNet/tNet are per-100 possessions vs league average. WAR converts Net Points vs replacement into wins added.")
