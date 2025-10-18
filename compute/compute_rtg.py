@@ -4,7 +4,7 @@ from pathlib import Path
 # ---------- CONFIG ----------
 SEASON = 2025
 FT_WEIGHT = 0.44
-MIN_POSSESSIONS_FOR_PLAYER = 300
+MIN_POSSESSIONS_FOR_PLAYER = 10  # lowered for testing
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 # ----------------------------
@@ -52,7 +52,11 @@ def load_boxscores(folder: Path):
     for p in sorted(folder.glob("*.csv")):
         print(f"📂 Found file: {p.name}")
         try:
-            df = pd.read_csv(p, encoding="utf-8-sig", engine="python")
+            # Attempt UTF-8, fallback to Latin1 or cp1252 automatically
+            try:
+                df = pd.read_csv(p, encoding="utf-8-sig", engine="python")
+            except UnicodeDecodeError:
+                df = pd.read_csv(p, encoding="cp1252", engine="python")
         except Exception as e:
             print(f"⚠️ Failed to read {p.name}: {e}")
             continue
@@ -61,6 +65,9 @@ def load_boxscores(folder: Path):
         if "player_name" not in df.columns:
             print(f"⚠️ Skipping {p.name} — no 'player_name' column found.")
             continue
+
+        rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
+        df.rename(columns=rename_map, inplace=True)
 
         df = preprocess_boxscores(df)
         rows.append(df)
@@ -71,9 +78,6 @@ def load_boxscores(folder: Path):
 
     allbx = pd.concat(rows, ignore_index=True)
     print(f"✅ Combined total {len(allbx)} rows across {len(rows)} files")
-
-    rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
-    allbx.rename(columns=rename_map, inplace=True)
 
     for col in ["team_id","opp_team_id","team_name","opp_team_name"]:
         if col not in allbx.columns:
@@ -145,8 +149,8 @@ def process_gender(gender):
     g["OffRtg_on"] = 100 * g["pts_for"] / g["poss_for"].clip(lower=1)
     g["DefRtg_on"] = 100 * g["pts_against"] / g["poss_against"].clip(lower=1)
     g["tRtg"] = g["OffRtg_on"] + g["DefRtg_on"].abs()
-    g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER / 10]  # smaller threshold for test
 
+    g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER]
     print(f"✅ Computed {len(g)} player ratings for {gender}")
     g.to_csv(out_file, index=False)
     print(f"💾 Saved: {out_file}")
