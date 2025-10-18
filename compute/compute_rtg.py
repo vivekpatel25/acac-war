@@ -61,7 +61,10 @@ def preprocess_boxscores(df):
 def load_boxscores(folder: Path):
     rows = []
     for p in sorted(folder.glob("*.csv")):
-        df = pd.read_csv(p)
+        try:
+            df = pd.read_csv(p, encoding="utf-8-sig", engine="python")
+        except UnicodeDecodeError:
+            df = pd.read_csv(p, encoding="latin1", engine="python")
         df["__source_file"] = p.name
         df = preprocess_boxscores(df)
         rows.append(df)
