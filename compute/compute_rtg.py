@@ -169,7 +169,7 @@ out = (
 )
 
 
-    cols = [
+cols = [
         "player_id","player_name","team_name","pos","class",
         "poss_for","OffRtg_on","DefRtg_on","tRtg","season"
     ]
