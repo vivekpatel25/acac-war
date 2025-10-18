@@ -160,7 +160,7 @@ def process_gender(gender):
 
     g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER]
 
-out = (
+    out = (
     g.merge(roster[["player_id","player_name","team_id","team_name","pos","class","jersey"]],
             on=["player_id","team_id"], how="left")
      .fillna({"team_name": g["team_id"]})  # fallback if missing
@@ -169,7 +169,7 @@ out = (
 )
 
 
-cols = [
+    cols = [
         "player_id","player_name","team_name","pos","class",
         "poss_for","OffRtg_on","DefRtg_on","tRtg","season"
     ]
