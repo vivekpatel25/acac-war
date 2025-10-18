@@ -1,19 +1,16 @@
-import pandas as pd, numpy as np, re, unicodedata, os
+import pandas as pd, numpy as np, re, unicodedata
 from pathlib import Path
 
 # ---------- CONFIG ----------
 SEASON = 2025
 FT_WEIGHT = 0.44
 MIN_POSSESSIONS_FOR_PLAYER = 300
-# --- ensure proper working directory
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
 # ----------------------------
 
 def slugify(s):
-    if pd.isna(s):
-        s = ""
+    if pd.isna(s): s = ""
     s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
     s = re.sub(r"[^A-Za-z0-9]+", "-", s.strip().lower())
     return s.strip("-")
@@ -46,52 +43,50 @@ def preprocess_boxscores(df):
     return df
 
 def load_boxscores(folder: Path):
+    print(f"\n🔍 Looking for boxscore files in: {folder}")
+    if not folder.exists():
+        print(f"❌ Folder missing: {folder}")
+        return pd.DataFrame()
+
     rows = []
     for p in sorted(folder.glob("*.csv")):
+        print(f"📂 Found file: {p.name}")
         try:
             df = pd.read_csv(p, encoding="utf-8-sig", engine="python")
-        except UnicodeDecodeError:
-            df = pd.read_csv(p, encoding="latin1", engine="python")
-        df["__source_file"] = p.name
-        if "player_name" not in df.columns:
+        except Exception as e:
+            print(f"⚠️ Failed to read {p.name}: {e}")
             continue
+
+        print(f"✅ Read {len(df)} rows from {p.name}, columns: {list(df.columns)}")
+        if "player_name" not in df.columns:
+            print(f"⚠️ Skipping {p.name} — no 'player_name' column found.")
+            continue
+
         df = preprocess_boxscores(df)
         rows.append(df)
 
     if not rows:
-        print(f"⚠️ No boxscore files found in {folder}")
+        print("⚠️ No valid CSV files found.")
         return pd.DataFrame()
 
     allbx = pd.concat(rows, ignore_index=True)
+    print(f"✅ Combined total {len(allbx)} rows across {len(rows)} files")
 
-    # Normalize column names
-    allbx.columns = [c.strip() for c in allbx.columns]
     rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
     allbx.rename(columns=rename_map, inplace=True)
 
-    # Guarantee critical columns
     for col in ["team_id","opp_team_id","team_name","opp_team_name"]:
         if col not in allbx.columns:
             allbx[col] = ""
 
-    for c in ["player_name","team_name","opp_team_name","team_id","opp_team_id","game_id","pos","class","jersey"]:
-        if c in allbx.columns:
-            allbx[c] = allbx[c].astype(str).fillna("").map(normalize_name)
-
-    allbx["team_id"] = np.where(allbx["team_id"].eq(""), allbx["team_name"], allbx["team_id"])
-    allbx["opp_team_id"] = np.where(allbx["opp_team_id"].eq(""), allbx["opp_team_name"], allbx["opp_team_id"])
-
-    num_cols = [
-        "minutes","team_pts_for","team_fga","team_fta","team_tov","team_orb",
-        "team_pts_against","opp_fga","opp_fta","opp_tov","opp_orb"
-    ]
+    num_cols = ["minutes","team_pts_for","team_fga","team_fta","team_tov","team_orb",
+                "team_pts_against","opp_fga","opp_fta","opp_tov","opp_orb"]
     for c in num_cols:
         if c not in allbx.columns:
-            allbx[c] = 0.0
+            allbx[c] = 0
         else:
             allbx[c] = pd.to_numeric(allbx[c], errors="coerce").fillna(0.0)
 
-    print(f"✅ Loaded {len(allbx)} rows from {folder}")
     return allbx.drop_duplicates()
 
 def process_gender(gender):
@@ -101,20 +96,10 @@ def process_gender(gender):
 
     box = load_boxscores(boxdir)
     if box.empty:
-        print(f"⚠️ No {gender} boxscores found in {boxdir}")
+        print(f"⚠️ No {gender} boxscores loaded — leaderboard will be empty.")
         return
 
-    if roster_path.exists():
-        roster = pd.read_csv(roster_path)
-    else:
-        roster = pd.DataFrame(columns=["player_id","player_name","team_id","team_name","pos","class","jersey","season"])
-
-    pid = box.apply(
-        lambda r: f"{slugify(r['team_id'])}_{SEASON}_{slugify(r['player_name'])}" + 
-        (f"_{slugify(r['jersey'])}" if str(r.get('jersey','')).strip() else ""),
-        axis=1
-    )
-    box = box.assign(player_id=pid)
+    print(f"🏀 Proceeding with {len(box)} rows for {gender}")
 
     team_game = (
         box.groupby(["game_id","team_id","team_name","opp_team_id","opp_team_name"], as_index=False)
@@ -148,7 +133,7 @@ def process_gender(gender):
     m["poss_against_on"] = m["poss_opp"] * m["min_share"]
 
     g = (
-        m.groupby(["player_id","team_id"], as_index=False)
+        m.groupby(["player_name","team_name"], as_index=False)
         .agg(
             pts_for=("pts_for_on","sum"),
             pts_against=("pts_against_on","sum"),
@@ -160,27 +145,11 @@ def process_gender(gender):
     g["OffRtg_on"] = 100 * g["pts_for"] / g["poss_for"].clip(lower=1)
     g["DefRtg_on"] = 100 * g["pts_against"] / g["poss_against"].clip(lower=1)
     g["tRtg"] = g["OffRtg_on"] + g["DefRtg_on"].abs()
-    g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER]
+    g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER / 10]  # smaller threshold for test
 
-    expected_cols = ["player_id","player_name","team_id","team_name","pos","class","jersey"]
-    for col in expected_cols:
-        if col not in roster.columns:
-            roster[col] = ""
-
-    out = (
-        g.merge(roster[expected_cols], on=["player_id","team_id"], how="left")
-         .fillna({"team_name": g["team_id"]})
-         .assign(season=SEASON)
-         .sort_values("tRtg", ascending=False)
-    )
-
-    cols = ["player_id","player_name","team_name","pos","class",
-            "poss_for","OffRtg_on","DefRtg_on","tRtg","season"]
-
-    out[cols].to_csv(out_file, index=False)
-    print(f"✅ Wrote {out_file} with {len(out)} players.")
-    if not out.empty:
-        print(out.head())
+    print(f"✅ Computed {len(g)} player ratings for {gender}")
+    g.to_csv(out_file, index=False)
+    print(f"💾 Saved: {out_file}")
 
 def main():
     for gender in ["men","women"]:
