@@ -76,16 +76,15 @@ def load_boxscores(folder: Path):
         if c in allbx.columns:
             allbx[c] = allbx[c].astype(str).fillna("").map(normalize_name)
 
-# Ensure ID columns exist even if missing from CSV
+    # Ensure ID columns exist even if missing from CSV
     for col in ["team_id", "opp_team_id", "team_name", "opp_team_name"]:
-    if col not in allbx.columns:
-        allbx[col] = ""
+        if col not in allbx.columns:
+            allbx[col] = ""
 
-# If team_id is missing, fallback to team_name
+    # If team_id is missing, fallback to team_name
     allbx["team_id"] = np.where(allbx["team_id"].eq(""), allbx["team_name"], allbx["team_id"])
     allbx["opp_team_id"] = np.where(allbx["opp_team_id"].eq(""), allbx["opp_team_name"], allbx["opp_team_id"])
-
-
+    
     num_cols = ["minutes","team_pts_for","team_fga","team_fta","team_tov","team_orb",
                 "team_pts_against","opp_fga","opp_fta","opp_tov","opp_orb"]
     for c in num_cols:
