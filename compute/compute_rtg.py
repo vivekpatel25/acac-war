@@ -73,7 +73,7 @@ def load_boxscores(folder: Path):
         return pd.DataFrame()
     allbx = pd.concat(rows, ignore_index=True)
 
-    # Normalize column names
+    # Normalize column names and handle MIN variations
     allbx.columns = [c.strip() for c in allbx.columns]
     rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
     allbx.rename(columns=rename_map, inplace=True)
@@ -102,6 +102,7 @@ def load_boxscores(folder: Path):
         else:
             allbx[c] = pd.to_numeric(allbx[c], errors="coerce").fillna(0.0)
 
+    print(f"Loaded {len(allbx)} rows from {folder}")
     return allbx.drop_duplicates()
 
 
@@ -180,9 +181,14 @@ def process_gender(gender):
 
     g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER]
 
+    # --- safe merge with roster ---
+    expected_cols = ["player_id","player_name","team_id","team_name","pos","class","jersey"]
+    for col in expected_cols:
+        if col not in roster.columns:
+            roster[col] = ""
+
     out = (
-        g.merge(roster[["player_id","player_name","team_id","team_name","pos","class","jersey"]],
-                on=["player_id","team_id"], how="left")
+        g.merge(roster[expected_cols], on=["player_id","team_id"], how="left")
          .fillna({"team_name": g["team_id"]})
          .assign(season=SEASON)
          .sort_values("tRtg", ascending=False)
