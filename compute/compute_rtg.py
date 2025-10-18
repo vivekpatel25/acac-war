@@ -4,7 +4,7 @@ from pathlib import Path
 # ---------- CONFIG ----------
 SEASON = 2025
 FT_WEIGHT = 0.44
-MIN_POSSESSIONS_FOR_PLAYER = 10  # lowered for testing
+MIN_POSSESSIONS_FOR_PLAYER = 10
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 # ----------------------------
@@ -30,7 +30,7 @@ def clean_player_name_and_jersey(name):
         name = match.group(2).strip()
     return name, jersey
 
-def preprocess_boxscores(df):
+def preprocess_boxscores(df, source_name):
     df[["player_name", "jersey_from_name"]] = df["player_name"].apply(
         lambda n: pd.Series(clean_player_name_and_jersey(n))
     )
@@ -40,6 +40,8 @@ def preprocess_boxscores(df):
         df["jersey"] = df["jersey_from_name"]
     df.drop(columns=["jersey_from_name"], inplace=True)
     df["player_name"] = df["player_name"].map(normalize_name)
+    if "game_id" not in df.columns:
+        df["game_id"] = Path(source_name).stem  # fallback: filename as game_id
     return df
 
 def load_boxscores(folder: Path):
@@ -52,7 +54,6 @@ def load_boxscores(folder: Path):
     for p in sorted(folder.glob("*.csv")):
         print(f"📂 Found file: {p.name}")
         try:
-            # Attempt UTF-8, fallback to Latin1 or cp1252 automatically
             try:
                 df = pd.read_csv(p, encoding="utf-8-sig", engine="python")
             except UnicodeDecodeError:
@@ -68,8 +69,7 @@ def load_boxscores(folder: Path):
 
         rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
         df.rename(columns=rename_map, inplace=True)
-
-        df = preprocess_boxscores(df)
+        df = preprocess_boxscores(df, p.name)
         rows.append(df)
 
     if not rows:
@@ -105,19 +105,23 @@ def process_gender(gender):
 
     print(f"🏀 Proceeding with {len(box)} rows for {gender}")
 
+    # Generate team-level dummy data if not present
+    if "team_id" not in box.columns or box["team_id"].eq("").all():
+        box["team_id"] = box["team_name"]
+
     team_game = (
-        box.groupby(["game_id","team_id","team_name","opp_team_id","opp_team_name"], as_index=False)
+        box.groupby(["game_id","team_id","team_name"], as_index=False)
         .agg(
-            pts_for=("team_pts_for","first"),
-            fga=("team_fga","first"),
-            fta=("team_fta","first"),
-            tov=("team_tov","first"),
-            orb=("team_orb","first"),
-            pts_against=("team_pts_against","first"),
-            ofga=("opp_fga","first"),
-            ofta=("opp_fta","first"),
-            otov=("opp_tov","first"),
-            oorb=("opp_orb","first"),
+            pts_for=("team_pts_for","sum"),
+            fga=("team_fga","sum"),
+            fta=("team_fta","sum"),
+            tov=("team_tov","sum"),
+            orb=("team_orb","sum"),
+            pts_against=("team_pts_against","sum"),
+            ofga=("opp_fga","sum"),
+            ofta=("opp_fta","sum"),
+            otov=("opp_tov","sum"),
+            oorb=("opp_orb","sum"),
         )
     )
     team_game["poss_for"] = poss(team_game.fga, team_game.tov, team_game.fta, team_game.orb)
@@ -126,9 +130,11 @@ def process_gender(gender):
     team_minutes = box.groupby(["game_id","team_id"])["minutes"].transform("sum").replace(0, np.nan)
     box["min_share"] = (box["minutes"] / team_minutes).fillna(0)
 
+    # ✅ Safe merge: drop duplicates first
+    team_game = team_game.drop_duplicates(subset=["game_id","team_id"])
     m = box.merge(
         team_game[["game_id","team_id","pts_for","pts_against","poss_for","poss_opp"]],
-        on=["game_id","team_id"], how="left", validate="m:1"
+        on=["game_id","team_id"], how="left"
     )
 
     m["pts_for_on"] = m["pts_for"] * m["min_share"]
@@ -149,8 +155,8 @@ def process_gender(gender):
     g["OffRtg_on"] = 100 * g["pts_for"] / g["poss_for"].clip(lower=1)
     g["DefRtg_on"] = 100 * g["pts_against"] / g["poss_against"].clip(lower=1)
     g["tRtg"] = g["OffRtg_on"] + g["DefRtg_on"].abs()
-
     g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER]
+
     print(f"✅ Computed {len(g)} player ratings for {gender}")
     g.to_csv(out_file, index=False)
     print(f"💾 Saved: {out_file}")
