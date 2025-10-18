@@ -12,7 +12,7 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 # --- Basic helpers ---
 def slugify(s):
-    if pd.isna(s): 
+    if pd.isna(s):
         s = ""
     s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
     s = re.sub(r"[^A-Za-z0-9]+", "-", s.strip().lower())
@@ -43,6 +43,7 @@ def clean_player_name_and_jersey(name):
         name = match.group(2).strip()
     return name, jersey
 
+
 def preprocess_boxscores(df):
     """Clean player names and auto-extract jersey numbers"""
     df[["player_name", "jersey_from_name"]] = df["player_name"].apply(
@@ -72,23 +73,34 @@ def load_boxscores(folder: Path):
         return pd.DataFrame()
     allbx = pd.concat(rows, ignore_index=True)
 
-    for c in ["player_name","team_name","opp_team_name","team_id","opp_team_id","game_id","pos","class","jersey"]:
-        if c in allbx.columns:
-            allbx[c] = allbx[c].astype(str).fillna("").map(normalize_name)
+    # Normalize column names
+    allbx.columns = [c.strip() for c in allbx.columns]
+    rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
+    allbx.rename(columns=rename_map, inplace=True)
 
-    # Ensure ID columns exist even if missing from CSV
+    # Ensure expected columns exist
     for col in ["team_id", "opp_team_id", "team_name", "opp_team_name"]:
         if col not in allbx.columns:
             allbx[col] = ""
 
-    # If team_id is missing, fallback to team_name
+    for c in ["player_name","team_name","opp_team_name","team_id","opp_team_id","game_id","pos","class","jersey"]:
+        if c in allbx.columns:
+            allbx[c] = allbx[c].astype(str).fillna("").map(normalize_name)
+
+    # Fallback IDs if missing
     allbx["team_id"] = np.where(allbx["team_id"].eq(""), allbx["team_name"], allbx["team_id"])
     allbx["opp_team_id"] = np.where(allbx["opp_team_id"].eq(""), allbx["opp_team_name"], allbx["opp_team_id"])
-    
-    num_cols = ["minutes","team_pts_for","team_fga","team_fta","team_tov","team_orb",
-                "team_pts_against","opp_fga","opp_fta","opp_tov","opp_orb"]
+
+    # Numeric columns
+    num_cols = [
+        "minutes","team_pts_for","team_fga","team_fta","team_tov","team_orb",
+        "team_pts_against","opp_fga","opp_fta","opp_tov","opp_orb"
+    ]
     for c in num_cols:
-        allbx[c] = pd.to_numeric(allbx[c], errors="coerce").fillna(0.0)
+        if c not in allbx.columns:
+            allbx[c] = 0.0
+        else:
+            allbx[c] = pd.to_numeric(allbx[c], errors="coerce").fillna(0.0)
 
     return allbx.drop_duplicates()
 
@@ -164,19 +176,17 @@ def process_gender(gender):
 
     g["OffRtg_on"] = 100 * g["pts_for"] / g["poss_for"].clip(lower=1)
     g["DefRtg_on"] = 100 * g["pts_against"] / g["poss_against"].clip(lower=1)
-    # XRAPM-style total: add absolute defensive rating
     g["tRtg"] = g["OffRtg_on"] + g["DefRtg_on"].abs()
 
     g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER]
 
     out = (
-    g.merge(roster[["player_id","player_name","team_id","team_name","pos","class","jersey"]],
-            on=["player_id","team_id"], how="left")
-     .fillna({"team_name": g["team_id"]})  # fallback if missing
-     .assign(season=SEASON)
-     .sort_values("tRtg", ascending=False)
-)
-
+        g.merge(roster[["player_id","player_name","team_id","team_name","pos","class","jersey"]],
+                on=["player_id","team_id"], how="left")
+         .fillna({"team_name": g["team_id"]})
+         .assign(season=SEASON)
+         .sort_values("tRtg", ascending=False)
+    )
 
     cols = [
         "player_id","player_name","team_name","pos","class",
