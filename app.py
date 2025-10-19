@@ -1,69 +1,58 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-SEASON = 2025
+st.set_page_config(page_title="ACAC Player Ratings — Season 2025", layout="wide")
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
+SEASON = 2025
 
-st.set_page_config(page_title=f"ACAC Player Net Points — Season {SEASON}",
-                   layout="wide",
-                   page_icon="🏀")
-
-st.title(f"ACAC Player Net Points — Season {SEASON}")
-
-tabs = st.tabs(["Men", "Women"])
-genders = ["men","women"]
-
-def read_csv_robust(p: Path) -> pd.DataFrame:
-    for enc in ("utf-8-sig","utf-8","latin1"):
-        try:
-            df = pd.read_csv(p, encoding=enc)
-            break
-        except Exception:
-            df = None
-    if df is None:
-        return pd.DataFrame()
-    # de-NBSP and tidy strings
-    df = df.applymap(lambda x: str(x).replace("\xa0"," ").strip() if isinstance(x,str) else x)
+def load_board(gender: str) -> pd.DataFrame:
+    path = DATA_DIR / f"leaderboard_{gender}_{SEASON}.csv"
+    if not path.exists():
+        return pd.DataFrame(columns=["player_name","team_name","G","Off","Def","Overall"])
+    try:
+        df = pd.read_csv(path)
+    except Exception:
+        # handle weird encodings if ever present
+        df = pd.read_csv(path, encoding="latin1")
+    # Ensure numeric and 1 decimal formatting
+    for c in ("G","Off","Def","Overall"):
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
     return df
 
-for tab, gender in zip(tabs, genders):
+st.markdown("# ACAC Player Ratings — Season 2025")
+
+tabs = st.tabs(["Men", "Women"])
+
+for tab, gender in zip(tabs, ["men","women"]):
     with tab:
-        path = DATA_DIR / f"leaderboard_{gender}_{SEASON}.csv"
-        if not path.exists():
-            st.info(f"No leaderboard yet. Run `python compute/compute_rtg.py` to generate:\n\n`{path}`")
+        df = load_board(gender)
+        if df.empty or len(df) == 0:
+            st.info(
+                f"No leaderboard yet for **{gender}**. "
+                f"Generate it with `python compute/compute_rtg.py` "
+                f"and ensure the file `data/leaderboard_{gender}_{SEASON}.csv` exists."
+            )
             continue
 
-        df = read_csv_robust(path)
-
-        # enforce columns order if present
-        cols = [c for c in ["player_name","team_name","games","Off","Def","Overall"] if c in df.columns]
-        df = df[cols].copy()
-
-        # cast numbers to int (no decimals) if present
-        for c in ["games","Off","Def","Overall"]:
-            if c in df.columns:
-                df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).astype(int)
-
-        # rename headers nicely
-        nice = {
+        # Display like ESPN: Player | Team | G | Offense | Defense | Overall
+        df = df.rename(columns={
             "player_name":"Player",
             "team_name":"Team",
-            "games":"G",
             "Off":"Offense",
             "Def":"Defense",
-            "Overall":"Overall"
-        }
-        df = df.rename(columns=nice)
+        })
 
-        if df.empty or df.shape[0] == 0:
-            st.info("Leaderboard is empty.")
-        else:
-            st.dataframe(
-                df,
-                use_container_width=True,
-                hide_index=True
-            )
+        # Order and rounding
+        cols = ["Player","Team","G","Offense","Defense","Overall"]
+        df = df[cols].copy()
+        df["G"] = df["G"].astype(int)
+        for c in ("Offense","Defense","Overall"):
+            df[c] = df[c].map(lambda x: f"{x:.1f}")
+
+        # Use st.table to DISABLE interactive sorting on Player/Team as requested
+        st.caption("Values are season totals (one decimal). Only numeric stats are meaningful for sorting; "
+                   "this table is fixed to avoid sorting by Player/Team.")
+        st.table(df)
