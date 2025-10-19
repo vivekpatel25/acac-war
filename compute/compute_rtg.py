@@ -118,7 +118,7 @@ def process_gender(g):
         "opp_team_name": "team_name",
         "pts_for": "pts_against",
         "poss_for": "poss_opp"
-    })[["game_id", "team_name", "pts_against", "poss_opp"]]
+    )[["game_id", "team_name", "pts_against", "poss_opp"]]
     merged = merged.merge(opp, on=["game_id", "team_name"], how="left")
     merged["pts_against_on"] = merged["pts_against"] * merged["min_share"]
     merged["poss_against_on"] = merged["poss_opp"] * merged["min_share"]
