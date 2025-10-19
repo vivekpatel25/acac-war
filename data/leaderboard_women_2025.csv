@@ -1,1 +1,23 @@
-player_name,team_name,games,offense,defence,overall
+player_name,team_name,games,Off,Def,Overall
+08 - Ivet Hidalgo,STMU,1,27,5,32
+05 - Kendal Russell,STMU,1,25,4,29
+13 - Lesley Chalmers,STMU,1,19,5,24
+14 - Salome Nuako,STMU,1,19,4,23
+07 - Eva Nickerson,STMU,1,18,3,22
+06 - Adit Deng,STMU,1,17,4,21
+01 - Keanna Richards,STMU,1,11,3,14
+11 - Anna Murry,STMU,1,11,3,14
+12 - Oge Ejim,STMU,1,10,2,12
+04 - Calla Mcleod,STMU,1,10,2,11
+15 - Valentina Okeke,STMU,1,8,2,11
+23 - Kamryn Laverick,NWP,1,-1,-3,-4
+14 - Zarah Mackay,NWP,1,-1,-6,-7
+06 - Ainsley Price,NWP,1,-2,-11,-13
+12 - Brooke MacDonald,NWP,1,-2,-12,-14
+07 - Rachael Eastland,NWP,1,-3,-14,-17
+04 - Kim Talavara,NWP,1,-3,-15,-18
+03 - Keira Komarnicki,NWP,1,-3,-20,-23
+20 - Charlee McIntyre,NWP,1,-11,-14,-25
+11 - Rachel Brooks,NWP,1,-4,-21,-25
+05 - Emma Van Dijk,NWP,1,-4,-29,-33
+08 - Peyton Breen,NWP,1,-4,-31,-35

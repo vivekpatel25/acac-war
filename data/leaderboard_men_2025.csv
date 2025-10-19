@@ -1,1 +1,21 @@
-player_name,team_name,games,offense,defence,overall
+player_name,team_name,games,Off,Def,Overall
+20 - Kaden Gravengard,NWP,1,2,2,4
+07 - Mirza Todorovac,NWP,1,2,2,4
+05 - Brandon Gillis,NWP,1,2,1,3
+09 - Darnell Stewart,NWP,1,2,1,3
+06 - Chris Kinyange,NWP,1,1,2,3
+15 - Trevon-Davis Arogie,NWP,1,1,1,2
+04 - John Sasi,NWP,1,1,1,1
+03 - Samuel Rosse,NWP,1,0,0,1
+11 - Romarie Johnson,NWP,1,1,1,1
+13 - Caleb Tengera,NWP,1,0,0,0
+11 - Brenddan Nightingale,STMU,1,-1,-1,-1
+07 - Cache Perrett,STMU,1,0,-1,-1
+05 - Angelo Santiago,STMU,1,0,0,-1
+13 - Ben Gilbert,STMU,1,-1,-1,-2
+09 - Kamari Breary,STMU,1,-1,-1,-2
+06 - CJ Peters,STMU,1,-1,-1,-2
+12 - Riley Follensbee,STMU,1,-1,-2,-3
+02 - Pelumi Ajayi,STMU,1,-1,-2,-3
+10 - Ayudo Ayudo,STMU,1,-2,-2,-3
+04 - Lucas Barlow,STMU,1,-3,-2,-5
