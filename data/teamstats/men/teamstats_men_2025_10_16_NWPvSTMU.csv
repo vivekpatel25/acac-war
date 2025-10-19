@@ -1,4 +1,5 @@
-game_id,team_name,opp_team_name,team_min,FGM,FGA,3PM,3PA,FTM,FTA,OREB,DREB,TOV,PTS,
+game_id,team_name,opp_team_name,team_min,FGM,FGA,3PM,3PA,FTM,FTA,OREB,DREB,TOV,PTS
 2025_10_16_NWPvSTMU,NWP,STMU,40,22,62,10,28,13,17,10,32,24,67
 2025_10_16_NWPvSTMU,STMU,NWP,40,22,70,7,25,7,13,11,27,14,58
+
 
