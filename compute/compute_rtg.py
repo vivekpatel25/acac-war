@@ -4,7 +4,7 @@ from pathlib import Path
 # ---------- CONFIG ----------
 SEASON = 2025
 FT_WEIGHT = 0.44
-MIN_POSSESSIONS_FOR_PLAYER = 10
+MIN_POSSESSIONS_FOR_PLAYER = 5
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 # ----------------------------
@@ -15,12 +15,11 @@ def slugify(s):
     s = re.sub(r"[^A-Za-z0-9]+", "-", s.strip().lower())
     return s.strip("-")
 
-def poss(fga, tov, fta, orb):
-    """Estimate team possessions."""
-    return fga + tov + FT_WEIGHT * fta - orb
-
 def normalize_name(n):
-    return re.sub(r"\s+", " ", str(n)).strip()
+    return re.sub(r"\s+", " ", str(n)).strip().upper()
+
+def poss(fga, tov, fta, orb):
+    return fga + tov + FT_WEIGHT * fta - orb
 
 def clean_player_name_and_jersey(name):
     name = str(name).strip()
@@ -40,9 +39,12 @@ def preprocess_boxscores(df, source_name):
     else:
         df["jersey"] = df["jersey_from_name"]
     df.drop(columns=["jersey_from_name"], inplace=True)
-    df["player_name"] = df["player_name"].map(normalize_name)
+    df["player_name"] = df["player_name"].map(lambda x: x.strip().title())
+
+    # normalize game_id
     if "game_id" not in df.columns:
         df["game_id"] = Path(source_name).stem
+    df["game_id"] = df["game_id"].str.replace("v", "-").str.replace("_", "-").str.upper()
     return df
 
 def load_boxscores(folder: Path):
@@ -50,7 +52,6 @@ def load_boxscores(folder: Path):
     if not folder.exists():
         print(f"❌ Folder missing: {folder}")
         return pd.DataFrame()
-
     rows = []
     for p in sorted(folder.glob("*.csv")):
         print(f"📂 Found file: {p.name}")
@@ -65,19 +66,16 @@ def load_boxscores(folder: Path):
 
         rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
         df.rename(columns=rename_map, inplace=True)
-
         if "player_name" not in df.columns:
             print(f"⚠️ Skipping {p.name} — no player_name column.")
             continue
-
         df = preprocess_boxscores(df, p.name)
         rows.append(df)
-
     if not rows:
         print("⚠️ No valid CSV files found.")
         return pd.DataFrame()
-
     allbx = pd.concat(rows, ignore_index=True)
+    allbx["team_name"] = allbx["team_name"].map(normalize_name)
     print(f"✅ Combined {len(allbx)} rows across {len(rows)} files")
     return allbx
 
@@ -86,22 +84,21 @@ def load_teamstats(folder: Path):
     if not folder.exists():
         print(f"⚠️ Folder missing: {folder}")
         return pd.DataFrame()
-
     rows = []
     for p in sorted(folder.glob("*.csv")):
         try:
             df = pd.read_csv(p)
+            df["game_id"] = df["game_id"].astype(str).str.replace("v", "-").str.replace("_", "-").str.upper()
+            df["team_name"] = df["team_name"].map(normalize_name)
+            df["opp_team_name"] = df["opp_team_name"].map(normalize_name)
             rows.append(df)
         except Exception as e:
             print(f"⚠️ Could not read {p.name}: {e}")
     if not rows:
         print("⚠️ No teamstats found.")
         return pd.DataFrame()
-
     ts = pd.concat(rows, ignore_index=True)
     print(f"✅ Loaded {len(ts)} teamstat rows across {len(rows)} files")
-
-    # compute team and opponent possessions
     ts["poss_for"] = poss(ts["FGA"], ts["TOV"], ts["FTA"], ts["OREB"])
     ts["pts_for"] = ts["PTS"]
     return ts
@@ -113,41 +110,31 @@ def process_gender(gender):
 
     box = load_boxscores(boxdir)
     teams = load_teamstats(teamdir)
-
     if box.empty or teams.empty:
         print(f"⚠️ Missing data for {gender}, leaderboard skipped.")
         return
 
-    # Merge player stats with team totals
-    merged = box.merge(
-        teams.rename(columns={"team_name": "team_name", "game_id": "game_id"}),
-        on=["team_name", "game_id"],
-        how="left"
-    )
+    merged = box.merge(teams, on=["game_id", "team_name"], how="left")
 
-    # calculate minutes share
-    merged["minutes"] = pd.to_numeric(merged["minutes"], errors="coerce").fillna(0)
-    total_minutes = merged.groupby(["game_id", "team_name"])["minutes"].transform("sum").replace(0, np.nan)
+    merged["minutes"] = pd.to_numeric(merged.get("minutes", 0), errors="coerce").fillna(0)
+    total_minutes = merged.groupby(["game_id","team_name"])["minutes"].transform("sum").replace(0, np.nan)
     merged["min_share"] = merged["minutes"] / total_minutes
 
-    # apportion team results
-    merged["pts_for_on"] = merged["pts_for"] * merged["min_share"]
+    merged["pts_for_on"] = merged["PTS"] * merged["min_share"]
     merged["poss_for_on"] = merged["poss_for"] * merged["min_share"]
 
-    # team-level opponent mapping
+    # Opponent mapping
     opp = teams.rename(columns={
         "team_name": "opp_team_name",
         "opp_team_name": "team_name",
         "PTS": "pts_against",
         "poss_for": "poss_opp"
     })[["game_id", "team_name", "pts_against", "poss_opp"]]
-
     merged = merged.merge(opp, on=["game_id", "team_name"], how="left")
 
     merged["pts_against_on"] = merged["pts_against"] * merged["min_share"]
     merged["poss_against_on"] = merged["poss_opp"] * merged["min_share"]
 
-    # aggregate per player
     g = (
         merged.groupby(["player_name","team_name"], as_index=False)
         .agg(
@@ -164,7 +151,6 @@ def process_gender(gender):
 
     g = g[g["poss_for"] >= MIN_POSSESSIONS_FOR_PLAYER]
     print(f"✅ Computed {len(g)} player ratings for {gender}")
-
     g.to_csv(out_file, index=False)
     print(f"💾 Saved: {out_file}")
 
