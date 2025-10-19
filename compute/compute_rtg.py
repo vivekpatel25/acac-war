@@ -56,14 +56,9 @@ def load_boxscores(folder: Path):
     for p in sorted(folder.glob("*.csv")):
         print(f"📂 Found file: {p.name}")
         try:
-            try:
-                df = pd.read_csv(p, encoding="utf-8-sig", engine="python")
-            except UnicodeDecodeError:
-                df = pd.read_csv(p, encoding="cp1252", engine="python")
-        except Exception as e:
-            print(f"⚠️ Failed to read {p.name}: {e}")
-            continue
-
+            df = pd.read_csv(p, encoding="utf-8-sig", engine="python")
+        except UnicodeDecodeError:
+            df = pd.read_csv(p, encoding="cp1252", engine="python")
         rename_map = {"MIN": "minutes", "Min": "minutes", "min": "minutes"}
         df.rename(columns=rename_map, inplace=True)
         if "player_name" not in df.columns:
@@ -99,8 +94,14 @@ def load_teamstats(folder: Path):
         return pd.DataFrame()
     ts = pd.concat(rows, ignore_index=True)
     print(f"✅ Loaded {len(ts)} teamstat rows across {len(rows)} files")
+
+    # Find the points column dynamically
+    pts_col = next((c for c in ts.columns if c.strip().upper() in ["PTS", "POINTS", "SCORE"]), None)
+    if pts_col is None:
+        raise KeyError("No points column found in teamstats CSVs (expected 'PTS' or 'POINTS').")
+    ts["pts_for"] = ts[pts_col]
+
     ts["poss_for"] = poss(ts["FGA"], ts["TOV"], ts["FTA"], ts["OREB"])
-    ts["pts_for"] = ts["PTS"]
     return ts
 
 def process_gender(gender):
@@ -120,14 +121,14 @@ def process_gender(gender):
     total_minutes = merged.groupby(["game_id","team_name"])["minutes"].transform("sum").replace(0, np.nan)
     merged["min_share"] = merged["minutes"] / total_minutes
 
-    merged["pts_for_on"] = merged["PTS"] * merged["min_share"]
+    merged["pts_for_on"] = merged["pts_for"] * merged["min_share"]
     merged["poss_for_on"] = merged["poss_for"] * merged["min_share"]
 
     # Opponent mapping
     opp = teams.rename(columns={
         "team_name": "opp_team_name",
         "opp_team_name": "team_name",
-        "PTS": "pts_against",
+        "pts_for": "pts_against",
         "poss_for": "poss_opp"
     })[["game_id", "team_name", "pts_against", "poss_opp"]]
     merged = merged.merge(opp, on=["game_id", "team_name"], how="left")
