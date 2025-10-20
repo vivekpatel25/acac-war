@@ -49,56 +49,50 @@ def load_board(gender):
 # ---------- STYLES ----------
 st.markdown("""
 <style>
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 16px;
-  margin-top: 10px;
-  border: 2px solid #000;
-  border-radius: 8px;
-  overflow: hidden;
+/* Fix Streamlit dark theme issues */
+[data-theme="light"] table {
+  color: #000 !important;
+  background-color: #fff !important;
+  border: 2px solid #000 !important;
 }
-th, td {
-  text-align: center;
-  padding: 10px 6px;
-  border: 1px solid #000;
-  white-space: nowrap;
-}
-th {
-  cursor: pointer;
-  font-weight: 600;
-  background-color: #f2f2f2;
-  color: #000;
-}
-tbody td:last-child {
-  font-weight: bold;
-}
-tbody tr:hover td {
-  background-color: rgba(0,0,0,0.05);
-}
-
-/* Dark mode (forced with Streamlit's theme attribute, not prefers-color-scheme) */
-[data-theme="dark"] table, 
-[data-theme="dark"] th, 
-[data-theme="dark"] td {
-  border: 1px solid #fff !important;
+[data-theme="dark"] table {
   color: #fff !important;
+  background-color: #111 !important;
+  border: 2px solid #fff !important;
+}
+[data-theme="light"] th {
+  background-color: #f2f2f2 !important;
+  color: #000 !important;
+  border: 1px solid #000 !important;
 }
 [data-theme="dark"] th {
   background-color: #222 !important;
+  color: #fff !important;
+  border: 1px solid #fff !important;
 }
-[data-theme="dark"] table {
-  border: 2px solid #fff !important;
-  background-color: #111 !important;
+[data-theme="light"] td, [data-theme="dark"] td {
+  border: 1px solid currentColor !important;
+  white-space: nowrap !important;
+  padding: 8px 10px !important;
+  text-align: center !important;
+}
+[data-theme="light"] tbody tr:hover td {
+  background-color: rgba(0,0,0,0.05) !important;
 }
 [data-theme="dark"] tbody tr:hover td {
   background-color: rgba(255,255,255,0.1) !important;
 }
-.footer {
-  margin-top: 3rem;
-  text-align: center;
-  color: gray;
-  font-size: 0.9rem;
+th {
+  font-weight: 600 !important;
+  cursor: pointer !important;
+}
+tbody td:last-child {
+  font-weight: bold !important;
+}
+table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -162,6 +156,7 @@ for tab, gender in zip(tabs, ["men", "women"]):
             st.info(f"No leaderboard yet for {gender}.")
             continue
 
+        # rename & clean
         col_map = {}
         for c in df.columns:
             lc = c.lower()
@@ -191,11 +186,11 @@ for tab, gender in zip(tabs, ["men", "women"]):
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Click **Games**, **Offense**, **Defense**, or **Overall** to sort.")
-        components.html(render_table(df), height=len(df)*45 + 250, scrolling=False)
+        components.html(render_table(df), height=len(df)*43 + 150, scrolling=False)
 
 # ---------- FOOTER ----------
 st.markdown("""
-<div class="footer">
+<div style="margin-top:2rem; text-align:center; color:gray; font-size:0.9rem;">
 <hr>
 © 2025 ACAC Analytics • Designed by Vivek Patel
 </div>
