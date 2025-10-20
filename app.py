@@ -62,6 +62,8 @@ table {
     border-collapse: collapse;
     font-size: 16px;
     margin-top: 10px;
+    border-radius: 6px;
+    overflow: hidden;
 }
 th, td {
     text-align: center;
@@ -70,29 +72,41 @@ th, td {
 }
 th {
     cursor: pointer;
-    background-color: #f2f2f2;
-    color: black;
-    position: sticky;
-    top: 0;
+    background-color: #f4f4f4;
+    color: #111;
+    font-weight: 600;
 }
 tbody tr:nth-child(even) {
-    background-color: rgba(200,200,200,0.04);
+    background-color: rgba(200,200,200,0.06);
 }
 tbody td:last-child {
-    background: linear-gradient(180deg, #eaeaea, #d6d6d6);
+    background: linear-gradient(180deg, #f5f5f5, #e1e1e1);
     font-weight: bold;
 }
 tbody tr:hover td {
-    background-color: rgba(0, 120, 215, 0.15);
+    background-color: rgba(0, 120, 215, 0.1);
 }
+
+/* --------- DARK MODE --------- */
 @media (prefers-color-scheme: dark) {
-    th { background-color: #1f1f1f; color: #f2f2f2; }
-    td { color: #f2f2f2; }
+    table {
+        background-color: #141414;
+    }
+    th {
+        background-color: #222;
+        color: #f2f2f2;
+    }
+    td {
+        color: #f2f2f2;
+    }
     tbody td:last-child {
         background: linear-gradient(180deg, #2a2a2a, #1e1e1e);
     }
+    tbody tr:nth-child(even) {
+        background-color: rgba(255,255,255,0.04);
+    }
     tbody tr:hover td {
-        background-color: rgba(255, 255, 255, 0.08);
+        background-color: rgba(255,255,255,0.1);
     }
 }
 .footer {
@@ -161,7 +175,6 @@ for tab, gender in zip(tabs, ["men", "women"]):
             st.info(f"No leaderboard yet for {gender}.")
             continue
 
-        # rename columns
         col_map = {}
         for c in df.columns:
             lc = c.lower()
@@ -190,7 +203,6 @@ for tab, gender in zip(tabs, ["men", "women"]):
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Click on **Games**, **Offense**, **Defense**, or **Overall** headers to sort.")
-        # render table through components to allow JS execution
         components.html(render_table(df), height=len(df)*45 + 250, scrolling=False)
 
 # ---------- FOOTER ----------
