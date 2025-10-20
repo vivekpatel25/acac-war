@@ -79,29 +79,54 @@ def render_table(df):
             "#000", "#000", "#f2f2f2", "rgba(0,0,0,0.05)", "#fff"
         )
 
-    # Responsive container
+    # Normalize numeric columns for coloring
+    for col in ["Offense", "Defense", "Overall"]:
+        if col in df.columns and df[col].notna().any():
+            vmin, vmax = df[col].min(), df[col].max()
+            rng = vmax - vmin if vmax != vmin else 1
+            df[f"_{col}_norm"] = (df[col] - vmin) / rng
+        else:
+            df[f"_{col}_norm"] = 0.0
+
     html = f"""
     <div style="overflow-x:auto; margin:0; padding:0;">
       <table style="min-width:600px; width:100%; border-collapse:collapse; font-size:16px;
                     color:{text_color}; background-color:{table_bg};
                     border:2px solid {border_color}; border-radius:6px;">
-        <thead>
-          <tr style="background:{header_bg}; color:{text_color};">
+        <thead><tr style="background:{header_bg}; color:{text_color};">
     """
     headers = ["Player", "Team", "G", "Offense", "Defense", "Overall"]
     for i, col in enumerate(headers):
         cursor = "pointer" if col in ["G", "Offense", "Defense", "Overall"] else "default"
-        html += f"<th onclick='sortTable({i})' style='border:1px solid {border_color}; white-space:nowrap; cursor:{cursor}; padding:8px 10px;'>{col} ⬍</th>" if cursor == "pointer" else f"<th style='border:1px solid {border_color}; white-space:nowrap; padding:8px 10px;'>{col}</th>"
+        html += (
+            f"<th onclick='sortTable({i})' style='border:1px solid {border_color}; "
+            f"white-space:nowrap; cursor:{cursor}; padding:8px 10px;'>{col} ⬍</th>"
+            if cursor == "pointer"
+            else f"<th style='border:1px solid {border_color}; white-space:nowrap; padding:8px 10px;'>{col}</th>"
+        )
     html += "</tr></thead><tbody>"
 
-    # Table rows
     for _, row in df.iterrows():
         html += f"<tr onmouseover=\"this.style.background='{row_hover}'\" onmouseout=\"this.style.background='transparent'\">"
         for c in headers:
-            weight = "bold" if c == "Overall" else "normal"
-            html += f"<td style='border:1px solid {border_color}; text-align:center; white-space:nowrap; padding:8px 10px; font-weight:{weight};'>{row.get(c, '')}</td>"
-        html += "</tr>"
+            bg = "transparent"
+            if c == "Offense":
+                intensity = row.get("_Offense_norm", 0)
+                bg = f"rgba(255,0,0,{0.15 + 0.75*intensity})"
+            elif c == "Defense":
+                intensity = row.get("_Defense_norm", 0)
+                bg = f"rgba(0,255,0,{0.15 + 0.75*intensity})"
+            elif c == "Overall":
+                intensity = row.get("_Overall_norm", 0)
+                bg = f"rgba(128,128,128,{0.15 + 0.75*intensity})"
 
+            weight = "bold" if c == "Overall" else "normal"
+            html += (
+                f"<td style='border:1px solid {border_color}; text-align:center; "
+                f"white-space:nowrap; padding:8px 10px; font-weight:{weight}; "
+                f"background-color:{bg};'>{row.get(c, '')}</td>"
+            )
+        html += "</tr>"
     html += "</tbody></table></div>"
     return html + SORT_SCRIPT
 
