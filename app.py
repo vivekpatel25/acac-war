@@ -77,43 +77,41 @@ function sortTable(n) {
 
 # ---------- INLINE TABLE RENDER ----------
 def render_table(df):
-    # Detect Streamlit dark mode (fallback heuristic)
+    # Detect dark or light mode
     dark = st.get_option("theme.base") == "dark"
-
     if dark:
-        border_color = "#fff"
-        text_color = "#fff"
-        header_bg = "#222"
-        row_hover = "rgba(255,255,255,0.1)"
-        table_bg = "#111"
+        border_color, text_color, header_bg, row_hover, table_bg = (
+            "#fff", "#fff", "#222", "rgba(255,255,255,0.1)", "#111"
+        )
     else:
-        border_color = "#000"
-        text_color = "#000"
-        header_bg = "#f2f2f2"
-        row_hover = "rgba(0,0,0,0.05)"
-        table_bg = "#fff"
+        border_color, text_color, header_bg, row_hover, table_bg = (
+            "#000", "#000", "#f2f2f2", "rgba(0,0,0,0.05)", "#fff"
+        )
 
+    # Responsive container
     html = f"""
-    <table style="width:100%; border-collapse:collapse; font-size:16px;
-                  color:{text_color}; background-color:{table_bg};
-                  border:2px solid {border_color};">
-      <thead>
-        <tr style="background:{header_bg}; color:{text_color};">
+    <div style="overflow-x:auto; margin:0; padding:0;">
+      <table style="min-width:600px; width:100%; border-collapse:collapse; font-size:16px;
+                    color:{text_color}; background-color:{table_bg};
+                    border:2px solid {border_color}; border-radius:6px;">
+        <thead>
+          <tr style="background:{header_bg}; color:{text_color};">
     """
-    headers = ["#", "Player", "Team", "G", "Offense", "Defense", "Overall"]
+    headers = ["Player", "Team", "G", "Offense", "Defense", "Overall"]
     for i, col in enumerate(headers):
         cursor = "pointer" if col in ["G", "Offense", "Defense", "Overall"] else "default"
         html += f"<th onclick='sortTable({i})' style='border:1px solid {border_color}; white-space:nowrap; cursor:{cursor}; padding:8px 10px;'>{col} ⬍</th>" if cursor == "pointer" else f"<th style='border:1px solid {border_color}; white-space:nowrap; padding:8px 10px;'>{col}</th>"
     html += "</tr></thead><tbody>"
 
-    for idx, row in df.iterrows():
+    # Table rows
+    for _, row in df.iterrows():
         html += f"<tr onmouseover=\"this.style.background='{row_hover}'\" onmouseout=\"this.style.background='transparent'\">"
-        html += f"<td style='border:1px solid {border_color}; text-align:center; padding:8px 10px;'>{idx}</td>"
-        for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"]:
+        for c in headers:
             weight = "bold" if c == "Overall" else "normal"
             html += f"<td style='border:1px solid {border_color}; text-align:center; white-space:nowrap; padding:8px 10px; font-weight:{weight};'>{row.get(c, '')}</td>"
         html += "</tr>"
-    html += "</tbody></table>"
+
+    html += "</tbody></table></div>"
     return html + SORT_SCRIPT
 
 # ---------- MAIN ----------
@@ -145,7 +143,6 @@ for tab, gender in zip(tabs, ["men", "women"]):
         df = df.rename(columns=col_map)
         keep = [c for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"] if c in df.columns]
         df = df[keep].copy()
-        df.index = range(1, len(df) + 1)
 
         for c in ["Offense", "Defense", "Overall"]:
             if c in df.columns:
@@ -155,7 +152,8 @@ for tab, gender in zip(tabs, ["men", "women"]):
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Click **Games**, **Offense**, **Defense**, or **Overall** to sort.")
-        components.html(render_table(df), height=len(df)*43 + 130, scrolling=False)
+        # Dynamically adjust height: each row 43px + small buffer
+        components.html(render_table(df), height=len(df) * 43 + 80, scrolling=False)
 
 # ---------- FOOTER ----------
 st.markdown("""
