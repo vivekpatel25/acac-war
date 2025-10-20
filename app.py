@@ -49,70 +49,56 @@ def load_board(gender):
 # ---------- STYLES ----------
 st.markdown("""
 <style>
-/* General background */
-html, body, [class*="stApp"] {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-}
-
-/* Default: light mode */
-:root {
-    --bg-color: #ffffff;
-    --text-color: #000000;
-    --table-bg: #ffffff;
-    --table-border: #000000;
-    --header-bg: #f2f2f2;
-    --header-text: #000000;
-    --row-hover: rgba(0,0,0,0.05);
-}
-
-/* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-color: #000000;
-    --text-color: #ffffff;
-    --table-bg: #111111;
-    --table-border: #ffffff;
-    --header-bg: #222222;
-    --header-text: #ffffff;
-    --row-hover: rgba(255,255,255,0.1);
-  }
-}
-
-/* Table style */
 table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 16px;
-    margin-top: 10px;
-    background-color: var(--table-bg);
-    color: var(--text-color);
-    border: 2px solid var(--table-border);
-    border-radius: 6px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-top: 10px;
+  border: 2px solid #000;
+  border-radius: 8px;
+  overflow: hidden;
 }
 th, td {
-    text-align: center;
-    padding: 10px 6px;
-    border: 1px solid var(--table-border);
-    white-space: nowrap;
+  text-align: center;
+  padding: 10px 6px;
+  border: 1px solid #000;
+  white-space: nowrap;
 }
 th {
-    cursor: pointer;
-    font-weight: 600;
-    background-color: var(--header-bg);
-    color: var(--header-text);
-}
-tbody tr:hover td {
-    background-color: var(--row-hover);
+  cursor: pointer;
+  font-weight: 600;
+  background-color: #f2f2f2;
+  color: #000;
 }
 tbody td:last-child {
-    font-weight: bold;
+  font-weight: bold;
+}
+tbody tr:hover td {
+  background-color: rgba(0,0,0,0.05);
+}
+
+/* Dark mode (forced with Streamlit's theme attribute, not prefers-color-scheme) */
+[data-theme="dark"] table, 
+[data-theme="dark"] th, 
+[data-theme="dark"] td {
+  border: 1px solid #fff !important;
+  color: #fff !important;
+}
+[data-theme="dark"] th {
+  background-color: #222 !important;
+}
+[data-theme="dark"] table {
+  border: 2px solid #fff !important;
+  background-color: #111 !important;
+}
+[data-theme="dark"] tbody tr:hover td {
+  background-color: rgba(255,255,255,0.1) !important;
 }
 .footer {
-    margin-top: 3rem;
-    text-align: center;
-    color: gray;
-    font-size: 0.9rem;
+  margin-top: 3rem;
+  text-align: center;
+  color: gray;
+  font-size: 0.9rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -176,7 +162,6 @@ for tab, gender in zip(tabs, ["men", "women"]):
             st.info(f"No leaderboard yet for {gender}.")
             continue
 
-        # rename & clean
         col_map = {}
         for c in df.columns:
             lc = c.lower()
