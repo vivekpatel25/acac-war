@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
 from datetime import date
 
 SEASON = 2025
@@ -103,28 +104,23 @@ tbody tr:hover td {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- FIXED JS SORT ----------
+# ---------- SORT SCRIPT ----------
 SORT_SCRIPT = """
 <script>
-let sortDirections = {}; // track which way each column was last sorted
-
+let sortDirections = {};
 function sortTable(n) {
   const table = event.target.closest("table");
   const tbody = table.querySelector("tbody");
   const rows = Array.from(tbody.querySelectorAll("tr"));
-
-  // toggle sort direction for this column
   const currentDir = sortDirections[n] || "desc";
   const newDir = currentDir === "asc" ? "desc" : "asc";
   sortDirections[n] = newDir;
 
-  // sort rows numerically or alphabetically
   rows.sort((a, b) => {
     const aText = a.cells[n].innerText.trim();
     const bText = b.cells[n].innerText.trim();
     const aNum = parseFloat(aText);
     const bNum = parseFloat(bText);
-
     if (!isNaN(aNum) && !isNaN(bNum)) {
       return newDir === "asc" ? aNum - bNum : bNum - aNum;
     }
@@ -132,8 +128,6 @@ function sortTable(n) {
       ? aText.localeCompare(bText)
       : bText.localeCompare(aText);
   });
-
-  // reattach sorted rows
   rows.forEach(r => tbody.appendChild(r));
 }
 </script>
@@ -196,7 +190,8 @@ for tab, gender in zip(tabs, ["men", "women"]):
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Click on **Games**, **Offense**, **Defense**, or **Overall** headers to sort.")
-        st.markdown(render_table(df), unsafe_allow_html=True)
+        # render table through components to allow JS execution
+        components.html(render_table(df), height=len(df)*45 + 250, scrolling=False)
 
 # ---------- FOOTER ----------
 st.markdown("""
