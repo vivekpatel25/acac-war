@@ -46,57 +46,6 @@ def load_board(gender):
         st.error(f"Error loading leaderboard for {gender}: {e}")
         return pd.DataFrame()
 
-# ---------- STYLES ----------
-st.markdown("""
-<style>
-/* Fix Streamlit dark theme issues */
-[data-theme="light"] table {
-  color: #000 !important;
-  background-color: #fff !important;
-  border: 2px solid #000 !important;
-}
-[data-theme="dark"] table {
-  color: #fff !important;
-  background-color: #111 !important;
-  border: 2px solid #fff !important;
-}
-[data-theme="light"] th {
-  background-color: #f2f2f2 !important;
-  color: #000 !important;
-  border: 1px solid #000 !important;
-}
-[data-theme="dark"] th {
-  background-color: #222 !important;
-  color: #fff !important;
-  border: 1px solid #fff !important;
-}
-[data-theme="light"] td, [data-theme="dark"] td {
-  border: 1px solid currentColor !important;
-  white-space: nowrap !important;
-  padding: 8px 10px !important;
-  text-align: center !important;
-}
-[data-theme="light"] tbody tr:hover td {
-  background-color: rgba(0,0,0,0.05) !important;
-}
-[data-theme="dark"] tbody tr:hover td {
-  background-color: rgba(255,255,255,0.1) !important;
-}
-th {
-  font-weight: 600 !important;
-  cursor: pointer !important;
-}
-tbody td:last-child {
-  font-weight: bold !important;
-}
-table {
-  width: 100% !important;
-  border-collapse: collapse !important;
-  margin: 0 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # ---------- SORT SCRIPT ----------
 SORT_SCRIPT = """
 <script>
@@ -126,23 +75,43 @@ function sortTable(n) {
 </script>
 """
 
-# ---------- RENDER TABLE ----------
+# ---------- INLINE TABLE RENDER ----------
 def render_table(df):
-    html = "<table><thead><tr>"
+    # Detect Streamlit dark mode (fallback heuristic)
+    dark = st.get_option("theme.base") == "dark"
+
+    if dark:
+        border_color = "#fff"
+        text_color = "#fff"
+        header_bg = "#222"
+        row_hover = "rgba(255,255,255,0.1)"
+        table_bg = "#111"
+    else:
+        border_color = "#000"
+        text_color = "#000"
+        header_bg = "#f2f2f2"
+        row_hover = "rgba(0,0,0,0.05)"
+        table_bg = "#fff"
+
+    html = f"""
+    <table style="width:100%; border-collapse:collapse; font-size:16px;
+                  color:{text_color}; background-color:{table_bg};
+                  border:2px solid {border_color};">
+      <thead>
+        <tr style="background:{header_bg}; color:{text_color};">
+    """
     headers = ["#", "Player", "Team", "G", "Offense", "Defense", "Overall"]
     for i, col in enumerate(headers):
-        if col in ["G", "Offense", "Defense", "Overall"]:
-            html += f"<th onclick='sortTable({i})'>{col} ⬍</th>"
-        else:
-            html += f"<th>{col}</th>"
+        cursor = "pointer" if col in ["G", "Offense", "Defense", "Overall"] else "default"
+        html += f"<th onclick='sortTable({i})' style='border:1px solid {border_color}; white-space:nowrap; cursor:{cursor}; padding:8px 10px;'>{col} ⬍</th>" if cursor == "pointer" else f"<th style='border:1px solid {border_color}; white-space:nowrap; padding:8px 10px;'>{col}</th>"
     html += "</tr></thead><tbody>"
+
     for idx, row in df.iterrows():
-        html += "<tr>"
-        html += f"<td>{idx}</td>"
-        html += "".join([
-            f"<td>{row.get(c, '')}</td>"
-            for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"]
-        ])
+        html += f"<tr onmouseover=\"this.style.background='{row_hover}'\" onmouseout=\"this.style.background='transparent'\">"
+        html += f"<td style='border:1px solid {border_color}; text-align:center; padding:8px 10px;'>{idx}</td>"
+        for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"]:
+            weight = "bold" if c == "Overall" else "normal"
+            html += f"<td style='border:1px solid {border_color}; text-align:center; white-space:nowrap; padding:8px 10px; font-weight:{weight};'>{row.get(c, '')}</td>"
         html += "</tr>"
     html += "</tbody></table>"
     return html + SORT_SCRIPT
@@ -186,7 +155,7 @@ for tab, gender in zip(tabs, ["men", "women"]):
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Click **Games**, **Offense**, **Defense**, or **Overall** to sort.")
-        components.html(render_table(df), height=len(df)*43 + 150, scrolling=False)
+        components.html(render_table(df), height=len(df)*43 + 130, scrolling=False)
 
 # ---------- FOOTER ----------
 st.markdown("""
