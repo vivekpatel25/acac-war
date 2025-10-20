@@ -22,16 +22,7 @@ st.markdown("""
 ### 📊 What this shows
 This leaderboard estimates each player's **overall impact** on their team's performance in the current ACAC season.
 
-**Weights**
-- 🎯 **30 %** — Team minute share (on-court value)  
-- 📊 **70 %** — Individual box-score impact  
-
-**Ratings**
-- 🔴 **Offense:** Scoring & creation impact  
-- 🟩 **Defense:** Stops & rebounding impact  
-- ⚫ **Overall:** Combined impact (Off + Def)
-
-_Not a WAR metric — this “Impact Index” blends box score and playing time similar to ESPN’s analytics._
+_This “Impact Index” blends box score and playing time similar to ESPN’s WAR analytics._
 ---
 """)
 
