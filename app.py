@@ -35,11 +35,11 @@ This leaderboard estimates each player's **overall impact** on their team's perf
 - 📊 **70 %** — Individual box-score impact  
 
 **Ratings**
-- 🔴 **Offense:** Scoring + creation impact  
-- 🟩 **Defense:** Stops + rebounding impact  
-- ⚫ **Overall:** Sum of offensive + defensive value  
+- 🔴 **Offense:** Scoring & creation impact  
+- 🟩 **Defense:** Stops & rebounding impact  
+- ⚫ **Overall:** Combined impact (Off + Def)
 
-_Not a pure WAR model — more a possession-based “Impact Index” inspired by ESPN analytics._
+_Not a WAR metric — this “Impact Index” blends box score and playing time similar to ESPN’s analytics._
 ---
 """)
 
@@ -70,7 +70,8 @@ html, body, [data-testid="stAppViewContainer"] {
 .stTable tr td, .stTable tr th {
     text-align:center !important;
     font-weight:600 !important;
-    padding:0.4rem 0.6rem !important;
+    padding:0.25rem 0.5rem !important;
+    white-space:nowrap !important;
 }
 .stTable th {
     font-weight:700 !important;
@@ -91,6 +92,16 @@ html, body, [data-testid="stAppViewContainer"] {
     text-align:center;
     color:gray;
     font-size:0.9rem;
+}
+
+/* Highlight Overall column */
+.stTable td:nth-last-child(1), .stTable th:nth-last-child(1) {
+    background:linear-gradient(180deg, #cfcfcf, #bfbfbf);
+}
+@media (prefers-color-scheme: dark) {
+    .stTable td:nth-last-child(1), .stTable th:nth-last-child(1) {
+        background:linear-gradient(180deg, #2a2a2a, #1e1e1e);
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -120,6 +131,12 @@ for tab, gender in zip(tabs, ["men", "women"]):
         })
         cols = ["Player", "Team", "G", "Offense", "Defense", "Overall"]
         df = df[cols].copy()
+
+        # Add ranking index
+        df.index = range(1, len(df) + 1)
+        df.index.name = "#"
+
+        # Format numbers
         df["G"] = df["G"].astype(int)
         for c in ("Offense", "Defense", "Overall"):
             df[c] = df[c].round(1)
@@ -127,12 +144,17 @@ for tab, gender in zip(tabs, ["men", "women"]):
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Player / Team columns fixed • Sort by **Games**, **Offense**, **Defense**, or **Overall**")
 
-        # Show static table (no inner scroll)
-        st.table(df.style.format({
+        # Display table
+        styled = df.style.format({
             "Offense": "{:.1f}",
             "Defense": "{:.1f}",
             "Overall": "{:.1f}"
-        }))
+        }).set_table_styles([
+            {'selector': 'th', 'props': [('text-align', 'center'), ('white-space', 'nowrap')]},
+            {'selector': 'td', 'props': [('text-align', 'center'), ('white-space', 'nowrap')]}
+        ])
+
+        st.table(styled)
 
 # ---------- Footer ----------
 st.markdown("""
