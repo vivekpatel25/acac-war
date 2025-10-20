@@ -3,8 +3,27 @@ import pandas as pd
 import streamlit.components.v1 as components
 from datetime import date
 
-SEASON = 2025
+SEASON = 2025/26
 st.set_page_config(page_title="ACAC Player Impact Ratings", page_icon="🏀", layout="wide")
+import os
+
+# Get latest update date from data files
+def get_last_update_date():
+    files = [
+        f"data/leaderboard_men_{SEASON}.csv",
+        f"data/leaderboard_women_{SEASON}.csv",
+    ]
+    timestamps = []
+    for f in files:
+        if os.path.exists(f):
+            timestamps.append(os.path.getmtime(f))
+    if timestamps:
+        latest = max(timestamps)
+        return date.fromtimestamp(latest).strftime("%b %d, %Y")
+    else:
+        return "N/A"
+
+last_update = get_last_update_date()
 
 # ---------- HEADER ----------
 st.markdown(f"""
@@ -12,7 +31,7 @@ st.markdown(f"""
             padding: 1.6rem 2rem; border-radius: 8px; color: white;">
   <h1 style="margin-bottom:0;">🏀 ACAC Player Impact Ratings — {SEASON}</h1>
   <p style="margin-top:0.4rem; font-size:1rem; opacity:0.9;">
-     Updated automatically • <b>{date.today():%b %d, %Y}</b>
+     Last computed on • <b>{last_update}</b>
   </p>
 </div>
 """, unsafe_allow_html=True)
