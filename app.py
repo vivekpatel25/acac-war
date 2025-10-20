@@ -152,8 +152,8 @@ for tab, gender in zip(tabs, ["men", "women"]):
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Click **Games**, **Offense**, **Defense**, or **Overall** to sort.")
-        # Dynamically adjust height: each row 43px + small buffer
-       components.html(render_table(df), scrolling=True)
+        # Auto height (no blank space, mobile responsive)
+        components.html(render_table(df), scrolling=True)
 
 # ---------- FOOTER ----------
 st.markdown("""
