@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# ---------- Gradient Banner ----------
+# ---------- Gradient Header ----------
 st.markdown(f"""
 <div style="
     background: linear-gradient(90deg, #002244, #0078D7);
@@ -54,7 +54,6 @@ def load_board(gender):
 # ---------- Styling ----------
 st.markdown("""
 <style>
-/* Dark/light adaptive background */
 html, body, [data-testid="stAppViewContainer"] {
     background-color: var(--bg);
     color: var(--fg);
@@ -66,42 +65,39 @@ html, body, [data-testid="stAppViewContainer"] {
     :root { --bg:#f9f9f9; --fg:#111; }
 }
 
-/* Table look */
-.stTable tr td, .stTable tr th {
-    text-align:center !important;
-    font-weight:600 !important;
-    padding:0.25rem 0.5rem !important;
-    white-space:nowrap !important;
+/* Table tweaks */
+[data-testid="stDataFrame"] div[data-testid="stVerticalBlock"] {
+    overflow: visible !important;
 }
-.stTable th {
-    font-weight:700 !important;
-    background:#e6e6e6;
+thead tr th div {
+    justify-content: center !important;
+    white-space: nowrap !important;
 }
-@media (prefers-color-scheme: dark) {
-    .stTable th { background:#222; }
+tbody td {
+    text-align: center !important;
+    white-space: nowrap !important;
+}
+tr:nth-child(even) {
+    background-color: rgba(200,200,200,0.04);
 }
 
-/* Full page scroll */
-[data-testid="stDataFrame"], [data-testid="stHorizontalBlock"] {
-    overflow:visible !important;
+/* Highlight last column (Overall) */
+tbody td:last-child {
+    background: linear-gradient(180deg, #cfcfcf, #bfbfbf);
+    font-weight: 700;
+}
+@media (prefers-color-scheme: dark) {
+    tbody td:last-child {
+        background: linear-gradient(180deg, #2a2a2a, #1e1e1e);
+    }
 }
 
 /* Footer */
 .footer {
-    margin-top:3rem;
-    text-align:center;
-    color:gray;
-    font-size:0.9rem;
-}
-
-/* Highlight Overall column */
-.stTable td:nth-last-child(1), .stTable th:nth-last-child(1) {
-    background:linear-gradient(180deg, #cfcfcf, #bfbfbf);
-}
-@media (prefers-color-scheme: dark) {
-    .stTable td:nth-last-child(1), .stTable th:nth-last-child(1) {
-        background:linear-gradient(180deg, #2a2a2a, #1e1e1e);
-    }
+    margin-top: 3rem;
+    text-align: center;
+    color: gray;
+    font-size: 0.9rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -120,7 +116,7 @@ for tab, gender in zip(tabs, ["men", "women"]):
             )
             continue
 
-        # Rename + format
+        # Rename and prepare
         df = df.rename(columns={
             "player_name": "Player",
             "team_name": "Team",
@@ -132,11 +128,11 @@ for tab, gender in zip(tabs, ["men", "women"]):
         cols = ["Player", "Team", "G", "Offense", "Defense", "Overall"]
         df = df[cols].copy()
 
-        # Add ranking index
+        # Add rank starting at 1
         df.index = range(1, len(df) + 1)
         df.index.name = "#"
 
-        # Format numbers
+        # Round numeric columns
         df["G"] = df["G"].astype(int)
         for c in ("Offense", "Defense", "Overall"):
             df[c] = df[c].round(1)
@@ -144,17 +140,20 @@ for tab, gender in zip(tabs, ["men", "women"]):
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
         st.caption("Player / Team columns fixed • Sort by **Games**, **Offense**, **Defense**, or **Overall**")
 
-        # Display table
-        styled = df.style.format({
-            "Offense": "{:.1f}",
-            "Defense": "{:.1f}",
-            "Overall": "{:.1f}"
-        }).set_table_styles([
-            {'selector': 'th', 'props': [('text-align', 'center'), ('white-space', 'nowrap')]},
-            {'selector': 'td', 'props': [('text-align', 'center'), ('white-space', 'nowrap')]}
-        ])
+        # Split static vs sortable columns
+        static_cols = ["#", "Player", "Team"]
+        sortable_cols = ["G", "Offense", "Defense", "Overall"]
 
-        st.table(styled)
+        # Streamlit dataframe allows sorting by column headers
+        st.dataframe(
+            df.style.format({
+                "Offense": "{:.1f}",
+                "Defense": "{:.1f}",
+                "Overall": "{:.1f}"
+            }),
+            use_container_width=True,
+            hide_index=False
+        )
 
 # ---------- Footer ----------
 st.markdown("""
