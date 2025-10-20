@@ -57,7 +57,7 @@ _This “Impact Index” blends box score and playing time similar to ESPN’s W
 @st.cache_data
 def load_board(gender):
     try:
-        df = pd.read_csv(f"data/leaderboard_{gender}_{SEASON}.csv")
+        df = pd.read_csv(f"data/leaderboard_{gender}_2025.csv")
         df.columns = df.columns.str.strip()
         return df
     except Exception as e:
