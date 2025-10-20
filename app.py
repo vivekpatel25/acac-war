@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import date
 
 SEASON = 2025
-
 st.set_page_config(page_title="ACAC Player Impact Ratings", page_icon="🏀", layout="wide")
 
 # ---------- HEADER ----------
@@ -17,7 +16,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- OVERVIEW ----------
+# ---------- INTRO ----------
 st.markdown("""
 ### 📊 What this shows
 This leaderboard estimates each player's **overall impact** on their team's performance in the current ACAC season.
@@ -46,10 +45,9 @@ def load_board(gender):
         st.error(f"Error loading leaderboard for {gender}: {e}")
         return pd.DataFrame()
 
-# ---------- GLOBAL STYLE FIX ----------
+# ---------- GLOBAL STYLE ----------
 st.markdown("""
 <style>
-/* Force entire page to scroll */
 section.main, div.block-container, [data-testid="stVerticalBlock"] {
     overflow: visible !important;
     height: auto !important;
@@ -58,8 +56,6 @@ html, body {
     overflow-y: visible !important;
     height: auto !important;
 }
-
-/* Table layout */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -98,8 +94,6 @@ tbody tr:hover td {
         background-color: rgba(255, 255, 255, 0.08);
     }
 }
-
-/* Footer */
 .footer {
     margin-top: 3rem;
     text-align: center;
@@ -109,49 +103,43 @@ tbody tr:hover td {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- JS SORT ----------
+# ---------- FIXED JS SORT ----------
 SORT_SCRIPT = """
 <script>
+let sortDirections = {}; // track which way each column was last sorted
+
 function sortTable(n) {
-  var table = event.target.closest("table");
-  var rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-  switching = true;
-  dir = "desc";
-  while (switching) {
-    switching = false;
-    rows = table.rows;
-    for (i = 1; i < (rows.length - 1); i++) {
-      shouldSwitch = false;
-      x = rows[i].getElementsByTagName("TD")[n];
-      y = rows[i + 1].getElementsByTagName("TD")[n];
-      if (dir == "asc") {
-        if (parseFloat(x.innerHTML) > parseFloat(y.innerHTML)) {
-          shouldSwitch = true;
-          break;
-        }
-      } else if (dir == "desc") {
-        if (parseFloat(x.innerHTML) < parseFloat(y.innerHTML)) {
-          shouldSwitch = true;
-          break;
-        }
-      }
+  const table = event.target.closest("table");
+  const tbody = table.querySelector("tbody");
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+
+  // toggle sort direction for this column
+  const currentDir = sortDirections[n] || "desc";
+  const newDir = currentDir === "asc" ? "desc" : "asc";
+  sortDirections[n] = newDir;
+
+  // sort rows numerically or alphabetically
+  rows.sort((a, b) => {
+    const aText = a.cells[n].innerText.trim();
+    const bText = b.cells[n].innerText.trim();
+    const aNum = parseFloat(aText);
+    const bNum = parseFloat(bText);
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return newDir === "asc" ? aNum - bNum : bNum - aNum;
     }
-    if (shouldSwitch) {
-      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-      switching = true;
-      switchcount ++;
-    } else {
-      if (switchcount == 0 && dir == "desc") {
-        dir = "asc";
-        switching = true;
-      }
-    }
-  }
+    return newDir === "asc"
+      ? aText.localeCompare(bText)
+      : bText.localeCompare(aText);
+  });
+
+  // reattach sorted rows
+  rows.forEach(r => tbody.appendChild(r));
 }
 </script>
 """
 
-# ---------- RENDER ----------
+# ---------- RENDER TABLE ----------
 def render_table(df):
     html = "<table><thead><tr>"
     headers = ["#", "Player", "Team", "G", "Offense", "Defense", "Overall"]
@@ -179,6 +167,7 @@ for tab, gender in zip(tabs, ["men", "women"]):
             st.info(f"No leaderboard yet for {gender}.")
             continue
 
+        # rename columns
         col_map = {}
         for c in df.columns:
             lc = c.lower()
