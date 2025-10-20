@@ -35,57 +35,68 @@ _Not a WAR metric — this “Impact Index” blends box score and playing time 
 ---
 """)
 
-# ---------- LOAD DATA ----------
+# ---------- LOAD ----------
 @st.cache_data
 def load_board(gender):
     try:
         df = pd.read_csv(f"data/leaderboard_{gender}_{SEASON}.csv")
-        df.columns = df.columns.str.strip()  # remove stray spaces
+        df.columns = df.columns.str.strip()
         return df
     except Exception as e:
         st.error(f"Error loading leaderboard for {gender}: {e}")
         return pd.DataFrame()
 
-# ---------- STYLING ----------
+# ---------- GLOBAL STYLE FIX ----------
 st.markdown("""
 <style>
-/* Background auto-adjust */
-html, body, [data-testid="stAppViewContainer"] {
-    background-color: var(--bg);
-    color: var(--fg);
+/* Force entire page to scroll */
+section.main, div.block-container, [data-testid="stVerticalBlock"] {
+    overflow: visible !important;
+    height: auto !important;
 }
-@media (prefers-color-scheme: dark) {
-    :root { --bg:#0e1117; --fg:#fafafa; }
-}
-@media (prefers-color-scheme: light) {
-    :root { --bg:#f9f9f9; --fg:#111; }
+html, body {
+    overflow-y: visible !important;
+    height: auto !important;
 }
 
-/* Table look */
-thead tr th div {
-    justify-content: center !important;
-    white-space: nowrap !important;
+/* Table layout */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+    margin-top: 10px;
 }
-tbody td {
-    text-align: center !important;
-    white-space: nowrap !important;
+th, td {
+    text-align: center;
+    padding: 10px 6px;
+    white-space: nowrap;
 }
-tr:nth-child(even) {
+th {
+    cursor: pointer;
+    background-color: #f2f2f2;
+    color: black;
+    position: sticky;
+    top: 0;
+}
+tbody tr:nth-child(even) {
     background-color: rgba(200,200,200,0.04);
 }
 tbody td:last-child {
     background: linear-gradient(180deg, #eaeaea, #d6d6d6);
-    font-weight: 700;
+    font-weight: bold;
+}
+tbody tr:hover td {
+    background-color: rgba(0, 120, 215, 0.15);
 }
 @media (prefers-color-scheme: dark) {
+    th { background-color: #1f1f1f; color: #f2f2f2; }
+    td { color: #f2f2f2; }
     tbody td:last-child {
         background: linear-gradient(180deg, #2a2a2a, #1e1e1e);
     }
-}
-
-/* Ensure page scroll, not inner div */
-[data-testid="stDataFrame"] div[data-testid="stVerticalBlock"] {
-    overflow: visible !important;
+    tbody tr:hover td {
+        background-color: rgba(255, 255, 255, 0.08);
+    }
 }
 
 /* Footer */
@@ -98,66 +109,105 @@ tbody td:last-child {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- TABS ----------
+# ---------- JS SORT ----------
+SORT_SCRIPT = """
+<script>
+function sortTable(n) {
+  var table = event.target.closest("table");
+  var rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+  switching = true;
+  dir = "desc";
+  while (switching) {
+    switching = false;
+    rows = table.rows;
+    for (i = 1; i < (rows.length - 1); i++) {
+      shouldSwitch = false;
+      x = rows[i].getElementsByTagName("TD")[n];
+      y = rows[i + 1].getElementsByTagName("TD")[n];
+      if (dir == "asc") {
+        if (parseFloat(x.innerHTML) > parseFloat(y.innerHTML)) {
+          shouldSwitch = true;
+          break;
+        }
+      } else if (dir == "desc") {
+        if (parseFloat(x.innerHTML) < parseFloat(y.innerHTML)) {
+          shouldSwitch = true;
+          break;
+        }
+      }
+    }
+    if (shouldSwitch) {
+      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+      switching = true;
+      switchcount ++;
+    } else {
+      if (switchcount == 0 && dir == "desc") {
+        dir = "asc";
+        switching = true;
+      }
+    }
+  }
+}
+</script>
+"""
+
+# ---------- RENDER ----------
+def render_table(df):
+    html = "<table><thead><tr>"
+    headers = ["#", "Player", "Team", "G", "Offense", "Defense", "Overall"]
+    for i, col in enumerate(headers):
+        if col in ["G", "Offense", "Defense", "Overall"]:
+            html += f"<th onclick='sortTable({i})'>{col} ⬍</th>"
+        else:
+            html += f"<th>{col}</th>"
+    html += "</tr></thead><tbody>"
+    for idx, row in df.iterrows():
+        html += "<tr>"
+        html += f"<td>{idx}</td>"
+        html += "".join([f"<td>{row.get(c, '')}</td>" for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"]])
+        html += "</tr>"
+    html += "</tbody></table>"
+    return html + SORT_SCRIPT
+
+# ---------- MAIN ----------
 tabs = st.tabs(["👨 Men", "👩 Women"])
 
 for tab, gender in zip(tabs, ["men", "women"]):
     with tab:
         df = load_board(gender)
         if df.empty:
-            st.info(f"No leaderboard yet for **{gender}** division.")
+            st.info(f"No leaderboard yet for {gender}.")
             continue
 
-        # Detect possible column names
         col_map = {}
-        for col in df.columns:
-            lc = col.lower()
+        for c in df.columns:
+            lc = c.lower()
             if "player" in lc:
-                col_map[col] = "Player"
+                col_map[c] = "Player"
             elif "team" in lc:
-                col_map[col] = "Team"
+                col_map[c] = "Team"
             elif "game" in lc and "id" not in lc:
-                col_map[col] = "G"
+                col_map[c] = "G"
             elif "off" in lc:
-                col_map[col] = "Offense"
+                col_map[c] = "Offense"
             elif "def" in lc:
-                col_map[col] = "Defense"
+                col_map[c] = "Defense"
             elif "overall" in lc or "total" in lc:
-                col_map[col] = "Overall"
-
+                col_map[c] = "Overall"
         df = df.rename(columns=col_map)
-
-        # Keep only relevant columns that exist
         keep = [c for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"] if c in df.columns]
         df = df[keep].copy()
-
-        # Add ranking
         df.index = range(1, len(df) + 1)
-        df.index.name = "#"
-
-        # Clean values
-        if "G" in df.columns:
-            df["G"] = df["G"].astype(int)
-        for c in ("Offense", "Defense", "Overall"):
+        df["G"] = df.get("G", 1).astype(int)
+        for c in ["Offense", "Defense", "Overall"]:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors="coerce").round(1)
-
-        # Default sort by Overall descending if available
         if "Overall" in df.columns:
             df = df.sort_values("Overall", ascending=False)
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
-        st.caption("Player / Team fixed • Click **Games**, **Offense**, **Defense**, or **Overall** to sort")
-
-        # Sortable + static columns
-        st.data_editor(
-            df,
-            use_container_width=True,
-            hide_index=False,
-            disabled=True,  # disables cell editing
-            column_order=[c for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"] if c in df.columns],
-            key=f"{gender}_editor"
-        )
+        st.caption("Click on **Games**, **Offense**, **Defense**, or **Overall** headers to sort.")
+        st.markdown(render_table(df), unsafe_allow_html=True)
 
 # ---------- FOOTER ----------
 st.markdown("""
