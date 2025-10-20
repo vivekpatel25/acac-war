@@ -60,7 +60,7 @@ html, body, [class*="stApp"] {
     --bg-color: #ffffff;
     --text-color: #000000;
     --table-bg: #ffffff;
-    --table-border: #cccccc;
+    --table-border: #000000;
     --header-bg: #f2f2f2;
     --header-text: #000000;
     --row-hover: rgba(0,0,0,0.05);
@@ -72,7 +72,7 @@ html, body, [class*="stApp"] {
     --bg-color: #000000;
     --text-color: #ffffff;
     --table-bg: #111111;
-    --table-border: #444444;
+    --table-border: #ffffff;
     --header-bg: #222222;
     --header-text: #ffffff;
     --row-hover: rgba(255,255,255,0.1);
@@ -87,6 +87,8 @@ table {
     margin-top: 10px;
     background-color: var(--table-bg);
     color: var(--text-color);
+    border: 2px solid var(--table-border);
+    border-radius: 6px;
 }
 th, td {
     text-align: center;
