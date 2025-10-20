@@ -46,12 +46,15 @@ def load_board(gender):
         st.error(f"Error loading leaderboard for {gender}: {e}")
         return pd.DataFrame()
 
-# ---------- STYLE ----------
+# ---------- TRUE MOBILE-SAFE DARK/LIGHT STYLES ----------
 st.markdown("""
 <style>
-html, body, [class*="stApp"] {
-    background-color: transparent !important;
+html, body, [class*="stApp"], [data-testid="stVerticalBlock"], [data-testid="stMainBlockContainer"], section.main {
+    background-color: var(--page-bg) !important;
+    color: var(--text-color) !important;
 }
+
+/* Base table look */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -69,42 +72,49 @@ th, td {
 th {
     cursor: pointer;
     font-weight: 600;
-    border-bottom: 2px solid #999;
-    background-color: var(--table-header-bg, #f2f2f2);
-    color: var(--table-header-text, #111);
+    border-bottom: 2px solid var(--border-color);
+    background-color: var(--table-header-bg);
+    color: var(--table-header-text);
 }
 tbody tr:nth-child(even) {
-    background-color: var(--row-alt, #fafafa);
+    background-color: var(--row-alt);
 }
 tbody td:last-child {
-    background: linear-gradient(180deg, var(--overall-top, #f5f5f5), var(--overall-bottom, #e1e1e1));
+    background: linear-gradient(180deg, var(--overall-top), var(--overall-bottom));
     font-weight: bold;
 }
 tbody tr:hover td {
-    background-color: var(--row-hover, rgba(0, 120, 215, 0.1));
+    background-color: var(--row-hover);
 }
 
-/* ---- Light mode defaults ---- */
+/* Light mode defaults */
 :root {
+  --page-bg: #ffffff;
+  --text-color: #111;
   --table-header-bg: #f2f2f2;
   --table-header-text: #111;
   --row-alt: #fafafa;
+  --border-color: #999;
   --overall-top: #f5f5f5;
   --overall-bottom: #e1e1e1;
   --row-hover: rgba(0, 120, 215, 0.1);
 }
 
-/* ---- Dark mode overrides ---- */
+/* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
   :root {
-    --table-header-bg: #202020;
-    --table-header-text: #f5f5f5;
-    --row-alt: #181818;
+    --page-bg: #0d0d0d;
+    --text-color: #f2f2f2;
+    --table-header-bg: #1e1e1e;
+    --table-header-text: #f2f2f2;
+    --row-alt: #141414;
+    --border-color: #555;
     --overall-top: #2a2a2a;
-    --overall-bottom: #1e1e1e;
+    --overall-bottom: #1b1b1b;
     --row-hover: rgba(255,255,255,0.08);
   }
 }
+
 .footer {
     margin-top: 3rem;
     text-align: center;
