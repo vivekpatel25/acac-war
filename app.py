@@ -6,68 +6,102 @@ SEASON = 2025
 
 st.set_page_config(
     page_title="ACAC Player Impact Ratings",
+    page_icon="🏀",
     layout="wide",
 )
 
-# --- Page Title & Description ---
+# ---------- Gradient Banner ----------
+st.markdown(f"""
+<div style="
+    background: linear-gradient(90deg, #002244, #0078D7);
+    padding: 1.6rem 2rem;
+    border-radius: 8px;
+    color: white;
+">
+  <h1 style="margin-bottom:0;">🏀 ACAC Player Impact Ratings — {SEASON}</h1>
+  <p style="margin-top:0.4rem; font-size:1rem; opacity:0.9;">
+     Updated automatically • <b>{date.today():%b %d, %Y}</b>
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+# ---------- Overview ----------
 st.markdown("""
-# 🏀 **The Best ACAC Basketball Players — Season 2025**
+### 📊 What this shows
+This leaderboard estimates each player's **overall impact** on their team's performance in the current ACAC season.
 
-_Updated automatically — last update:_ **{:%b %d, %Y}**
+**Weights**
+- 🎯 **30 %** — Team minute share (on-court value)  
+- 📊 **70 %** — Individual box-score impact  
 
+**Ratings**
+- 🔴 **Offense:** Scoring + creation impact  
+- 🟩 **Defense:** Stops + rebounding impact  
+- ⚫ **Overall:** Sum of offensive + defensive value  
+
+_Not a pure WAR model — more a possession-based “Impact Index” inspired by ESPN analytics._
 ---
+""")
 
-These rankings estimate each player's **overall impact** on their team's performance this ACAC season.  
-
----
-
-###Note:
-
-This model is not a pure *Wins Above Replacement (WAR)* metric but follows a similar idea —  
-quantifying how much a player contributes to team success beyond an average performer.
-
----
-""".format(date.today()))
-
-# --- Helper: Load Leaderboards ---
+# ---------- Data Loader ----------
 @st.cache_data
 def load_board(gender):
     try:
-        df = pd.read_csv(f"data/leaderboard_{gender}_{SEASON}.csv")
-        return df
+        return pd.read_csv(f"data/leaderboard_{gender}_{SEASON}.csv")
     except Exception:
         return pd.DataFrame()
 
-# --- Custom Styling ---
+# ---------- Styling ----------
 st.markdown("""
 <style>
-    /* Center and bold numeric columns */
-    .stDataFrame td div[data-testid="stMarkdownContainer"] {
-        text-align: center !important;
-        font-weight: 600 !important;
-    }
+/* Dark/light adaptive background */
+html, body, [data-testid="stAppViewContainer"] {
+    background-color: var(--bg);
+    color: var(--fg);
+}
+@media (prefers-color-scheme: dark) {
+    :root { --bg:#0e1117; --fg:#fafafa; }
+}
+@media (prefers-color-scheme: light) {
+    :root { --bg:#f9f9f9; --fg:#111; }
+}
 
-    /* Make headers bold and larger */
-    .stDataFrame thead tr th div {
-        text-align: center !important;
-        font-size: 1rem !important;
-        font-weight: 700 !important;
-    }
+/* Table look */
+.stTable tr td, .stTable tr th {
+    text-align:center !important;
+    font-weight:600 !important;
+    padding:0.4rem 0.6rem !important;
+}
+.stTable th {
+    font-weight:700 !important;
+    background:#e6e6e6;
+}
+@media (prefers-color-scheme: dark) {
+    .stTable th { background:#222; }
+}
 
-    /* Overall color tone */
-    .stApp {
-        background-color: #fafafa;
-    }
+/* Full page scroll */
+[data-testid="stDataFrame"], [data-testid="stHorizontalBlock"] {
+    overflow:visible !important;
+}
+
+/* Footer */
+.footer {
+    margin-top:3rem;
+    text-align:center;
+    color:gray;
+    font-size:0.9rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# --- Tabs for Men & Women ---
-tabs = st.tabs(["Men", "Women"])
+# ---------- Tabs ----------
+tabs = st.tabs(["👨 Men", "👩 Women"])
 
 for tab, gender in zip(tabs, ["men", "women"]):
     with tab:
         df = load_board(gender)
-        if df.empty or len(df) == 0:
+        if df.empty:
             st.info(
                 f"No leaderboard yet for **{gender}**. "
                 f"Run `python compute/compute_rtg.py` to generate "
@@ -75,7 +109,7 @@ for tab, gender in zip(tabs, ["men", "women"]):
             )
             continue
 
-        # Rename & select columns
+        # Rename + format
         df = df.rename(columns={
             "player_name": "Player",
             "team_name": "Team",
@@ -86,28 +120,24 @@ for tab, gender in zip(tabs, ["men", "women"]):
         })
         cols = ["Player", "Team", "G", "Offense", "Defense", "Overall"]
         df = df[cols].copy()
-
-        # Format values
         df["G"] = df["G"].astype(int)
         for c in ("Offense", "Defense", "Overall"):
             df[c] = df[c].round(1)
 
-        st.markdown("### 📈 **ACAC Player Impact Leaderboard**")
-        st.caption(
-            "Player and Team columns are fixed. You can sort by **Games**, **Offense**, **Defense**, or **Overall**."
-        )
+        st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
+        st.caption("Player / Team columns fixed • Sort by **Games**, **Offense**, **Defense**, or **Overall**")
 
-        # Display Table
-        st.dataframe(
-            df,
-            column_config={
-                "Player": st.column_config.TextColumn(disabled=True),
-                "Team": st.column_config.TextColumn(disabled=True),
-                "G": st.column_config.NumberColumn("Games", format="%d"),
-                "Offense": st.column_config.NumberColumn("Offense", format="%.1f"),
-                "Defense": st.column_config.NumberColumn("Defense", format="%.1f"),
-                "Overall": st.column_config.NumberColumn("Overall", format="%.1f"),
-            },
-            use_container_width=True,
-            hide_index=True
-        )
+        # Show static table (no inner scroll)
+        st.table(df.style.format({
+            "Offense": "{:.1f}",
+            "Defense": "{:.1f}",
+            "Overall": "{:.1f}"
+        }))
+
+# ---------- Footer ----------
+st.markdown("""
+<div class="footer">
+<hr>
+© 2025 ACAC Analytics • Designed by Vivek Patel
+</div>
+""", unsafe_allow_html=True)
