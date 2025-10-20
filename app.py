@@ -46,16 +46,11 @@ def load_board(gender):
         st.error(f"Error loading leaderboard for {gender}: {e}")
         return pd.DataFrame()
 
-# ---------- GLOBAL STYLE ----------
+# ---------- STYLE ----------
 st.markdown("""
 <style>
-section.main, div.block-container, [data-testid="stVerticalBlock"] {
-    overflow: visible !important;
-    height: auto !important;
-}
-html, body {
-    overflow-y: visible !important;
-    height: auto !important;
+html, body, [class*="stApp"] {
+    background-color: transparent !important;
 }
 table {
     width: 100%;
@@ -69,45 +64,46 @@ th, td {
     text-align: center;
     padding: 10px 6px;
     white-space: nowrap;
+    vertical-align: middle;
 }
 th {
     cursor: pointer;
-    background-color: #f4f4f4;
-    color: #111;
     font-weight: 600;
+    border-bottom: 2px solid #999;
+    background-color: var(--table-header-bg, #f2f2f2);
+    color: var(--table-header-text, #111);
 }
 tbody tr:nth-child(even) {
-    background-color: rgba(200,200,200,0.06);
+    background-color: var(--row-alt, #fafafa);
 }
 tbody td:last-child {
-    background: linear-gradient(180deg, #f5f5f5, #e1e1e1);
+    background: linear-gradient(180deg, var(--overall-top, #f5f5f5), var(--overall-bottom, #e1e1e1));
     font-weight: bold;
 }
 tbody tr:hover td {
-    background-color: rgba(0, 120, 215, 0.1);
+    background-color: var(--row-hover, rgba(0, 120, 215, 0.1));
 }
 
-/* --------- DARK MODE --------- */
+/* ---- Light mode defaults ---- */
+:root {
+  --table-header-bg: #f2f2f2;
+  --table-header-text: #111;
+  --row-alt: #fafafa;
+  --overall-top: #f5f5f5;
+  --overall-bottom: #e1e1e1;
+  --row-hover: rgba(0, 120, 215, 0.1);
+}
+
+/* ---- Dark mode overrides ---- */
 @media (prefers-color-scheme: dark) {
-    table {
-        background-color: #141414;
-    }
-    th {
-        background-color: #222;
-        color: #f2f2f2;
-    }
-    td {
-        color: #f2f2f2;
-    }
-    tbody td:last-child {
-        background: linear-gradient(180deg, #2a2a2a, #1e1e1e);
-    }
-    tbody tr:nth-child(even) {
-        background-color: rgba(255,255,255,0.04);
-    }
-    tbody tr:hover td {
-        background-color: rgba(255,255,255,0.1);
-    }
+  :root {
+    --table-header-bg: #202020;
+    --table-header-text: #f5f5f5;
+    --row-alt: #181818;
+    --overall-top: #2a2a2a;
+    --overall-bottom: #1e1e1e;
+    --row-hover: rgba(255,255,255,0.08);
+  }
 }
 .footer {
     margin-top: 3rem;
