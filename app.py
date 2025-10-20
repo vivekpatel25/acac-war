@@ -46,75 +46,66 @@ def load_board(gender):
         st.error(f"Error loading leaderboard for {gender}: {e}")
         return pd.DataFrame()
 
-# ---------- TRUE MOBILE-SAFE DARK/LIGHT STYLES ----------
+# ---------- STYLES ----------
 st.markdown("""
 <style>
-html, body, [class*="stApp"], [data-testid="stVerticalBlock"], [data-testid="stMainBlockContainer"], section.main {
-    background-color: var(--page-bg) !important;
-    color: var(--text-color) !important;
+/* General background */
+html, body, [class*="stApp"] {
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
-/* Base table look */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 16px;
-    margin-top: 10px;
-    border-radius: 6px;
-    overflow: hidden;
-}
-th, td {
-    text-align: center;
-    padding: 10px 6px;
-    white-space: nowrap;
-    vertical-align: middle;
-}
-th {
-    cursor: pointer;
-    font-weight: 600;
-    border-bottom: 2px solid var(--border-color);
-    background-color: var(--table-header-bg);
-    color: var(--table-header-text);
-}
-tbody tr:nth-child(even) {
-    background-color: var(--row-alt);
-}
-tbody td:last-child {
-    background: linear-gradient(180deg, var(--overall-top), var(--overall-bottom));
-    font-weight: bold;
-}
-tbody tr:hover td {
-    background-color: var(--row-hover);
-}
-
-/* Light mode defaults */
+/* Default: light mode */
 :root {
-  --page-bg: #ffffff;
-  --text-color: #111;
-  --table-header-bg: #f2f2f2;
-  --table-header-text: #111;
-  --row-alt: #fafafa;
-  --border-color: #999;
-  --overall-top: #f5f5f5;
-  --overall-bottom: #e1e1e1;
-  --row-hover: rgba(0, 120, 215, 0.1);
+    --bg-color: #ffffff;
+    --text-color: #000000;
+    --table-bg: #ffffff;
+    --table-border: #cccccc;
+    --header-bg: #f2f2f2;
+    --header-text: #000000;
+    --row-hover: rgba(0,0,0,0.05);
 }
 
 /* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
   :root {
-    --page-bg: #0d0d0d;
-    --text-color: #f2f2f2;
-    --table-header-bg: #1e1e1e;
-    --table-header-text: #f2f2f2;
-    --row-alt: #141414;
-    --border-color: #555;
-    --overall-top: #2a2a2a;
-    --overall-bottom: #1b1b1b;
-    --row-hover: rgba(255,255,255,0.08);
+    --bg-color: #000000;
+    --text-color: #ffffff;
+    --table-bg: #111111;
+    --table-border: #444444;
+    --header-bg: #222222;
+    --header-text: #ffffff;
+    --row-hover: rgba(255,255,255,0.1);
   }
 }
 
+/* Table style */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+    margin-top: 10px;
+    background-color: var(--table-bg);
+    color: var(--text-color);
+}
+th, td {
+    text-align: center;
+    padding: 10px 6px;
+    border: 1px solid var(--table-border);
+    white-space: nowrap;
+}
+th {
+    cursor: pointer;
+    font-weight: 600;
+    background-color: var(--header-bg);
+    color: var(--header-text);
+}
+tbody tr:hover td {
+    background-color: var(--row-hover);
+}
+tbody td:last-child {
+    font-weight: bold;
+}
 .footer {
     margin-top: 3rem;
     text-align: center;
@@ -166,14 +157,16 @@ def render_table(df):
     for idx, row in df.iterrows():
         html += "<tr>"
         html += f"<td>{idx}</td>"
-        html += "".join([f"<td>{row.get(c, '')}</td>" for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"]])
+        html += "".join([
+            f"<td>{row.get(c, '')}</td>"
+            for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"]
+        ])
         html += "</tr>"
     html += "</tbody></table>"
     return html + SORT_SCRIPT
 
 # ---------- MAIN ----------
 tabs = st.tabs(["👨 Men", "👩 Women"])
-
 for tab, gender in zip(tabs, ["men", "women"]):
     with tab:
         df = load_board(gender)
@@ -181,6 +174,7 @@ for tab, gender in zip(tabs, ["men", "women"]):
             st.info(f"No leaderboard yet for {gender}.")
             continue
 
+        # rename & clean
         col_map = {}
         for c in df.columns:
             lc = c.lower()
@@ -196,11 +190,12 @@ for tab, gender in zip(tabs, ["men", "women"]):
                 col_map[c] = "Defense"
             elif "overall" in lc or "total" in lc:
                 col_map[c] = "Overall"
+
         df = df.rename(columns=col_map)
         keep = [c for c in ["Player", "Team", "G", "Offense", "Defense", "Overall"] if c in df.columns]
         df = df[keep].copy()
         df.index = range(1, len(df) + 1)
-        df["G"] = df.get("G", 1).astype(int)
+
         for c in ["Offense", "Defense", "Overall"]:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors="coerce").round(1)
@@ -208,7 +203,7 @@ for tab, gender in zip(tabs, ["men", "women"]):
             df = df.sort_values("Overall", ascending=False)
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
-        st.caption("Click on **Games**, **Offense**, **Defense**, or **Overall** headers to sort.")
+        st.caption("Click **Games**, **Offense**, **Defense**, or **Overall** to sort.")
         components.html(render_table(df), height=len(df)*45 + 250, scrolling=False)
 
 # ---------- FOOTER ----------
