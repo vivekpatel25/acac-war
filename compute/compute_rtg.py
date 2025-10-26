@@ -10,9 +10,9 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 BOX_DIR = DATA_DIR / "boxscores"          # expects subfolders men/, women/
 TEAM_DIR = DATA_DIR / "teamstats"         # expects subfolders men/, women/
 OUT_TMPL = DATA_DIR / "leaderboard_{gender}_{season}.csv"
-# Weights: 30% minutes share, 70% player box stats
-W_MINUTE = 0.30
-W_STATS  = 0.70
+# Weights: 20% minutes share, 80% player box stats
+W_MINUTE = 0.20
+W_STATS  = 0.80
 # ----------------------------------------
 
 
