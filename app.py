@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 from datetime import date
 
 SEASON = "2025/26"
-st.set_page_config(page_title="ACAC Player Impact Ratings", page_icon="🏀", layout="wide")
+st.set_page_config(page_title="ACAC Basketball Player Impact Ratings", page_icon="🏀", layout="wide")
 import os
 
 import requests
