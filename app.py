@@ -158,13 +158,6 @@ def render_table(df):
     return html + SORT_SCRIPT
 
 # ---------- MAIN ----------
-st.markdown("""
-<div style="background-color:#f0f4ff; border-left:6px solid #0078D7;
-            padding:10px 15px; border-radius:6px; margin-bottom:1rem;">
-<b>Note:</b> The match between <b>MHC</b> and <b>LAKE</b> (both Men's and Women's)
-is not included in these ratings as no data was available for that game.
-</div>
-""", unsafe_allow_html=True)
 
 tabs = st.tabs(["👨 Men", "👩 Women"])
 for tab, gender in zip(tabs, ["men", "women"]):
