@@ -37,7 +37,7 @@ last_update = get_last_update_from_github(repo_owner, repo_name)
 st.markdown(f"""
 <div style="background: linear-gradient(90deg, #002244, #0078D7);
             padding: 1.6rem 2rem; border-radius: 8px; color: white;">
-  <h1 style="margin-bottom:0;">🏀 ACAC Player Impact Ratings — {SEASON}</h1>
+  <h1 style="margin-bottom:0;">🏀 ACAC Basketball Player Impact Ratings — {SEASON}</h1>
   <p style="margin-top:0.4rem; font-size:1rem; opacity:0.9;">
      Last updated on • <b>{last_update}</b>
   </p>
