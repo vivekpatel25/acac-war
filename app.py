@@ -2,35 +2,26 @@ import streamlit as st
 import pandas as pd
 import streamlit.components.v1 as components
 from datetime import date
+import requests
 
 SEASON = "2025/26"
 st.set_page_config(page_title="ACAC Basketball Player Impact Ratings", page_icon="🏀", layout="wide")
-import os
-
-import requests
 
 def get_last_update_from_github(repo_owner, repo_name, branch="main"):
-    """
-    Fetches the latest commit date (UTC) from the specified GitHub repo & branch.
-    """
     try:
         url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/commits/{branch}"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
         commit_date = data["commit"]["committer"]["date"]
-        # Convert from ISO (e.g., 2025-10-20T19:03:00Z) → Oct 20, 2025
         from datetime import datetime
         dt = datetime.strptime(commit_date, "%Y-%m-%dT%H:%M:%SZ")
         return dt.strftime("%b %d, %Y")
     except Exception as e:
         return "N/A"
 
-# 🔧 Replace with your actual repo info
-# Example: repo = "vivekpatel-acac/ACAC-Impact-Ratings"
-repo_owner = "vivekpatel25"   # GitHub username or org
-repo_name = "acac-war"  # repository name
-
+repo_owner = "vivekpatel25"
+repo_name = "acac-war"
 last_update = get_last_update_from_github(repo_owner, repo_name)
 
 # ---------- HEADER ----------
@@ -95,18 +86,16 @@ function sortTable(n) {
 
 # ---------- INLINE TABLE RENDER ----------
 def render_table(df):
-    # Detect dark or light mode
     dark = st.get_option("theme.base") == "dark"
     if dark:
-        border_color, text_color, header_bg, row_hover, table_bg = (
-            "#fff", "#fff", "#222", "rgba(255,255,255,0.1)", "#111"
+        border_color, text_color, header_bg, row_hover, table_bg, divider_color = (
+            "#fff", "#fff", "#222", "rgba(255,255,255,0.1)", "#111", "#666"
         )
     else:
-        border_color, text_color, header_bg, row_hover, table_bg = (
-            "#000", "#000", "#f2f2f2", "rgba(0,0,0,0.05)", "#fff"
+        border_color, text_color, header_bg, row_hover, table_bg, divider_color = (
+            "#000", "#000", "#f2f2f2", "rgba(0,0,0,0.05)", "#fff", "#888"
         )
 
-    # Normalize numeric columns for coloring
     for col in ["Offense", "Defense", "Overall"]:
         if col in df.columns and df[col].notna().any():
             vmin, vmax = df[col].min(), df[col].max()
@@ -133,32 +122,34 @@ def render_table(df):
         )
     html += "</tr></thead><tbody>"
 
-    for _, row in df.iterrows():
+    for idx, row in enumerate(df.itertuples(index=False)):
+        if idx == 20:  # ---- TOP 20 DIVIDER ----
+            html += f"<tr><td colspan='6' style='border-bottom:3px solid {divider_color}; height:6px;'></td></tr>"
+
         html += f"<tr onmouseover=\"this.style.background='{row_hover}'\" onmouseout=\"this.style.background='transparent'\">"
         for c in headers:
             bg = "transparent"
             if c == "Offense":
-                intensity = row.get("_Offense_norm", 0)
+                intensity = getattr(row, "_Offense_norm", 0)
                 bg = f"rgba(255,0,0,{0.15 + 0.75*intensity})"
             elif c == "Defense":
-                intensity = row.get("_Defense_norm", 0)
+                intensity = getattr(row, "_Defense_norm", 0)
                 bg = f"rgba(0,255,0,{0.15 + 0.75*intensity})"
             elif c == "Overall":
-                intensity = row.get("_Overall_norm", 0)
+                intensity = getattr(row, "_Overall_norm", 0)
                 bg = f"rgba(128,128,128,{0.15 + 0.75*intensity})"
 
             weight = "bold" if c == "Overall" else "normal"
             html += (
                 f"<td style='border:1px solid {border_color}; text-align:center; "
                 f"white-space:nowrap; padding:8px 10px; font-weight:{weight}; "
-                f"background-color:{bg};'>{row.get(c, '')}</td>"
+                f"background-color:{bg};'>{getattr(row, c, '')}</td>"
             )
         html += "</tr>"
     html += "</tbody></table></div>"
     return html + SORT_SCRIPT
 
 # ---------- MAIN ----------
-
 tabs = st.tabs(["👨 Men", "👩 Women"])
 for tab, gender in zip(tabs, ["men", "women"]):
     with tab:
@@ -167,7 +158,6 @@ for tab, gender in zip(tabs, ["men", "women"]):
             st.info(f"No leaderboard yet for {gender}.")
             continue
 
-        # rename & clean
         col_map = {}
         for c in df.columns:
             lc = c.lower()
@@ -195,8 +185,11 @@ for tab, gender in zip(tabs, ["men", "women"]):
             df = df.sort_values("Overall", ascending=False)
 
         st.subheader(f"📈 ACAC {gender.capitalize()} Leaderboard")
-        st.caption("Click **Games**, **Offense**, **Defense**, or **Overall** to sort.")
-        # Auto height (no blank space, mobile responsive)
+        st.markdown(
+            "<p style='color:gray; font-size:0.9rem;'>Top 20 cutoff line — based on <b>Overall</b> score. Sorting still active for all columns.</p>",
+            unsafe_allow_html=True,
+        )
+
         components.html(render_table(df), height=len(df) * 38, scrolling=False)
 
 # ---------- FOOTER ----------
