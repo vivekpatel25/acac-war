@@ -1,28 +1,32 @@
 import pandas as pd
 import numpy as np
-import re, unicodedata
 from pathlib import Path
+import re
+import unicodedata
 
-# ============================================================
-# CONFIG
-# ============================================================
+# ---------------- CONFIG ----------------
 SEASON = 2025
-FT_WEIGHT = 0.44
-W_MINUTE = 0.20
-W_STATS  = 0.80
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+BOX_DIR = DATA_DIR / "boxscores"          # expects subfolders men/, women/
+TEAM_DIR = DATA_DIR / "teamstats"         # expects subfolders men/, women/
+OUT_TMPL = DATA_DIR / "leaderboard_{gender}_{season}.csv"
+
+# Per-game blend (minutes vs. stats)
+W_MINUTE = 0.30
+W_STATS  = 0.70
+
+# Offense construction: give points the lion's share
+OFF_POINTS_W   = 0.80   # weight on PTS inside off_raw
+OFF_SUPPORT_W  = 0.20   # weight on creation/2nd-chance (AST/OREB)
+
+# Display scale so numbers feel like "WAR-ish" bands
 SCALE = 10.0
+ROUND_DEC = 1
+# ----------------------------------------
 
-DATA_DIR  = Path(__file__).resolve().parent.parent / "data"
-BOX_DIR   = DATA_DIR / "boxscores"
-TEAM_DIR  = DATA_DIR / "teamstats"
-OUT_TMPL  = DATA_DIR / "leaderboard_{gender}_{season}.csv"
 
-# ============================================================
-# HELPERS
-# ============================================================
-
-def read_csv_any_encoding(path: Path) -> pd.DataFrame:
-    """Read CSV robustly handling weird encodings (utf-8-sig / latin1)."""
+def _read_csv_any_encoding(path: Path) -> pd.DataFrame:
+    """Robust CSV reader for BOM/latin1/NBSP issues."""
     for enc in ("utf-8-sig", "utf-8", "latin1"):
         try:
             return pd.read_csv(path, encoding=enc, engine="python")
@@ -30,152 +34,146 @@ def read_csv_any_encoding(path: Path) -> pd.DataFrame:
             continue
     return pd.read_csv(path, engine="python")
 
-def normalize_name(s):
-    """Normalize text fields (strip accents, nbsp, extra spaces)."""
+
+def _normalize_name(s: str) -> str:
     if pd.isna(s):
         return ""
     s = unicodedata.normalize("NFKD", str(s)).replace("\xa0", " ")
-    s = re.sub(r"\s+", " ", s)
-    return s.strip()
+    return re.sub(r"\s+", " ", s).strip()
 
-def load_all(folder: Path) -> pd.DataFrame:
-    """Load and combine all CSVs in a folder."""
+
+def _load_all(folder: Path) -> pd.DataFrame:
     files = sorted(folder.glob("*.csv"))
-    if not files:
-        return pd.DataFrame()
-    parts = []
+    dfs = []
     for f in files:
-        df = read_csv_any_encoding(f)
-        df["__file"] = f.name
-        parts.append(df)
-    df = pd.concat(parts, ignore_index=True)
-    print(f"📂 Loaded {len(files)} files from {folder.name} ({len(df)} rows)")
-    return df
+        df = _read_csv_any_encoding(f)
+        df["__source_file"] = f.name
+        dfs.append(df)
+    if not dfs:
+        return pd.DataFrame()
+    return pd.concat(dfs, ignore_index=True)
 
-def coerce_numeric(df: pd.DataFrame, cols: list[str]):
-    """Force numeric conversion with 0 fill for missing cols."""
+
+def _coerce_numeric(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     for c in cols:
-        if c not in df.columns:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+        else:
             df[c] = 0.0
-        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
     return df
 
-def get_league_ts(team_df):
-    """Compute league true-shooting percentage baseline."""
-    pts = team_df["PTS"].sum()
-    fga = team_df["FGA"].sum()
-    fta = team_df["FTA"].sum()
-    denom = 2 * (fga + FT_WEIGHT * fta)
-    ts = pts / denom if denom > 0 else 0.5
-    print(f"   ➤ League TS% = {ts:.3f}")
-    return ts
 
-# ============================================================
-# CORE PROCESS
-# ============================================================
+def _positive_share(series: pd.Series) -> pd.Series:
+    """Return each value divided by the sum of positive values in its group."""
+    pos = series.clip(lower=0)
+    s = pos.sum()
+    if s <= 0:
+        return pd.Series(np.zeros(len(series)), index=series.index)
+    return pos / s
+
 
 def process_gender(gender: str):
-    print(f"\n================= {gender.upper()} =================")
-
-    box_path  = BOX_DIR / gender
+    box_path  = BOX_DIR  / gender
     team_path = TEAM_DIR / gender
     out_path  = OUT_TMPL.with_name(OUT_TMPL.name.format(gender=gender, season=SEASON))
 
-    boxes = load_all(box_path)
-    teams = load_all(team_path)
+    # ---- Load ----
+    boxes = _load_all(box_path)
+    teams = _load_all(team_path)
 
     if boxes.empty or teams.empty:
-        pd.DataFrame(columns=["player_name","team_name","G","Offense","Defense","Overall"]).to_csv(out_path, index=False)
-        print(f"[{gender}] No data found → empty file written.")
+        pd.DataFrame(columns=["player_name","team_name","games","Offense","Defense","Total"]).to_csv(out_path, index=False)
+        print(f"[{gender}] No data found. Wrote empty file: {out_path}")
         return
 
-    # Clean column names and normalize ids
+    # ---- Clean/standardize ----
     boxes.columns = [c.strip() for c in boxes.columns]
     teams.columns = [c.strip() for c in teams.columns]
 
     for c in ("game_id","team_name","player_name"):
         if c in boxes.columns:
-            boxes[c] = boxes[c].map(normalize_name)
+            boxes[c] = boxes[c].map(_normalize_name)
     for c in ("game_id","team_name","opp_team_name"):
         if c in teams.columns:
-            teams[c] = teams[c].map(normalize_name)
+            teams[c] = teams[c].map(_normalize_name)
 
-    # Numeric coercion
-    box_cols  = ["MIN","FGM","FGA","3PM","3PA","FTM","FTA","OREB","DREB","REB","AST","STL","BLK","TO","PF","PTS"]
-    team_cols = ["PTS","FGA","FTA","team_min"]
-    coerce_numeric(boxes, box_cols)
-    coerce_numeric(teams, team_cols)
+    # Player numeric
+    box_num = ["MIN","FGM","FGA","3PM","3PA","FTM","FTA","OREB","DREB","REB","AST","STL","BLK","TO","PF","PTS"]
+    _coerce_numeric(boxes, box_num)
 
-    # Handle missing team_min
+    # Team minutes present? else fallback/rename/default to 40
     if "team_min" not in teams.columns:
-        teams["team_min"] = 40.0
+        rename_key = None
+        for k in ("team minutes","minutes","MIN","min","gmin","GMIN"):
+            if k in teams.columns:
+                rename_key = k
+                break
+        if rename_key:
+            teams = teams.rename(columns={rename_key: "team_min"})
+        else:
+            teams["team_min"] = 40.0
+    _coerce_numeric(teams, ["team_min"])
 
-    # League TS baseline
-    league_ts = get_league_ts(teams)
-
-    # Merge team minutes to each player record
+    # ---- Merge team minutes into player rows ----
     key = ["game_id","team_name"]
+    for k in key:
+        if k not in boxes.columns or k not in teams.columns:
+            raise SystemExit(f"[{gender}] Missing merge key '{k}' in box/team files.")
     merged = boxes.merge(teams[key + ["team_min"]], on=key, how="left", validate="m:1")
-    merged["team_min"] = merged["team_min"].replace(0,np.nan).fillna(40.0)
-    merged["min_share"] = (merged["MIN"]/merged["team_min"]).clip(lower=0)
+    merged["team_min"] = merged["team_min"].replace(0, np.nan).fillna(40.0)
+    merged["min_share"] = (merged["MIN"] / merged["team_min"]).clip(lower=0)
 
-    # ----------------------------------------------------
-    # OFFENSIVE IMPACT
-    # ----------------------------------------------------
-    merged["plays"] = merged["FGA"] + FT_WEIGHT * merged["FTA"]
-    merged["expected_pts"] = 2 * league_ts * merged["plays"]
-    merged["off_raw"] = (merged["PTS"] - merged["expected_pts"]) \
-                        + 0.7*merged["AST"] + 0.7*merged["OREB"] - merged["TO"]
+    # ---- Offensive raw (points-heavy) ----
+    # Volume & efficiency dampers
+    merged["actions"] = merged["FGA"] + 0.44*merged["FTA"] + merged["AST"]
+    merged["vol_factor"] = np.minimum(1.0, merged["actions"] / 8.0)   # full credit at ~8 actions
+    ts_den = 2.0 * (merged["FGA"] + 0.44*merged["FTA"])
+    merged["ts_pct"] = np.where(ts_den > 0, merged["PTS"] / ts_den, 0.0)
+    merged["ts_scale"] = np.clip(np.where(ts_den > 0, merged["ts_pct"] / 0.55, 1.0), 0.6, 1.4)
 
-    # ----------------------------------------------------
-    # DEFENSIVE IMPACT
-    # ----------------------------------------------------
+    support = 0.7*merged["AST"] + 0.7*merged["OREB"]
+    misses  = (merged["FGA"] - merged["FGM"]) + 0.5*(merged["FTA"] - merged["FTM"]) + merged["TO"]
+
+    merged["off_raw"] = (
+        OFF_POINTS_W  * merged["PTS"]
+        + OFF_SUPPORT_W * support
+        - misses
+    ) * merged["vol_factor"] * merged["ts_scale"]
+
+    # ---- Defensive raw ----
     merged["def_raw"] = merged["STL"] + 0.7*merged["BLK"] + 0.3*merged["DREB"] - 0.25*merged["PF"]
 
-    # ----------------------------------------------------
-    # NORMALIZE WITHIN TEAM-GAME
-    # ----------------------------------------------------
-    def normalize_within(group):
-        pos_sum = group[group > 0].sum()
-        return group / pos_sum if pos_sum > 0 else 0
+    # ---- Within-game positive shares ----
+    merged["off_share"] = merged.groupby(key, group_keys=False)["off_raw"].apply(_positive_share)
+    merged["def_share"] = merged.groupby(key, group_keys=False)["def_raw"].apply(_positive_share)
 
-    merged["off_share"] = merged.groupby(key)["off_raw"].transform(normalize_within)
-    merged["def_share"] = merged.groupby(key)["def_raw"].transform(normalize_within)
+    # ---- Per-game blended scores ----
+    merged["Off_game"] = W_MINUTE * merged["min_share"] + W_STATS * merged["off_share"]
+    merged["Def_game"] = W_MINUTE * merged["min_share"] + W_STATS * merged["def_share"]
+    merged["Total_game"] = merged["Off_game"] + merged["Def_game"]
 
-    # ----------------------------------------------------
-    # COMBINE MINUTES SHARE + STAT SHARE
-    # ----------------------------------------------------
-    merged["Off_game"] = W_MINUTE*merged["min_share"] + W_STATS*merged["off_share"]
-    merged["Def_game"] = W_MINUTE*merged["min_share"] + W_STATS*merged["def_share"]
-    merged["Overall_game"] = merged["Off_game"] + merged["Def_game"]
+    # ---- Aggregate season ----
+    grp_cols = ["player_name","team_name"]
+    agg = (merged
+           .groupby(grp_cols, as_index=False)
+           .agg(games=("game_id","nunique"),
+                Offense=("Off_game","sum"),
+                Defense=("Def_game","sum"),
+                Total=("Total_game","sum")))
 
-    # ----------------------------------------------------
-    # AGGREGATE SEASON TOTALS
-    # ----------------------------------------------------
-    agg = (
-        merged.groupby(["player_name","team_name"], as_index=False)
-        .agg(G=("game_id","nunique"),
-             Offense=("Off_game","sum"),
-             Defense=("Def_game","sum"),
-             Overall=("Overall_game","sum"))
-    )
+    # Scale for readability and round
+    for c in ("Offense","Defense","Total"):
+        agg[c] = (agg[c] * SCALE).round(ROUND_DEC)
 
-    # Fill NaNs and scale
-    for c in ("Offense","Defense","Overall"):
-        agg[c] = (agg[c].fillna(0) * SCALE).round(1)
-
-    # Sort & export
-    agg = agg.sort_values("Overall", ascending=False).reset_index(drop=True)
+    # Sort and save
+    agg = agg.sort_values("Total", ascending=False).reset_index(drop=True)
     agg.to_csv(out_path, index=False)
-    print(f"[{gender}] ✅ Saved {len(agg)} rows → {out_path}")
+    print(f"[{gender}] Wrote {len(agg)} rows -> {out_path}")
 
-# ============================================================
-# MAIN
-# ============================================================
 
 def main():
-    for gender in ("men","women"):
-        process_gender(gender)
+    for g in ("men","women"):
+        process_gender(g)
 
 if __name__ == "__main__":
     main()
