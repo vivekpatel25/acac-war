@@ -162,9 +162,9 @@ def process_gender(gender: str):
                 Total=("Total_game","sum")))
 
     # Scale for readability and round
-    for c in ("Offense","Defense","Total"):
-        agg[c] = (agg[c] * SCALE).round(ROUND_DEC)
-
+SCALE = 4.0  # ↓ was 10, smaller for realistic range
+for c in ("Offense","Defense","Total"):
+    agg[c] = (agg[c] * SCALE).round(ROUND_DEC)
     # Sort and save
     agg = agg.sort_values("Total", ascending=False).reset_index(drop=True)
     agg.to_csv(out_path, index=False)
